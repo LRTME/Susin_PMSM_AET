@@ -20,6 +20,18 @@ float	cpu_temp = 0.0;
 // counter of too long interrupt function executions
 int     interrupt_overflow_counter = 0;
 
+// overcurrent trip variable
+bool 	trip_oc_flag = FALSE;
+
+// extern variables
+extern bool sw1_state;
+extern bool b1_state;
+extern bool b1_press;
+extern bool b2_press;
+extern bool b3_press;
+extern bool b4_press;
+
+
 /**************************************************************
 * interrupt funcion
 **************************************************************/
@@ -51,17 +63,46 @@ void interrupt PER_int(void)
     REF_GEN_update();
 
     // wait for the ADC to finish with conversion
-    ADC_wait();
+    ADC_A_wait();
 
     // calculate voltage measured from ADC data
-    voltage = ADC_B3/4096.0;
+    voltage = ADC_A2/4096.0;
 
     // calculate CPU temperature
     cpu_temp = GetTemperatureC(ADC_TEMP);
 
+
+
+
+    /* 3 phase inverter control alghorithm */
+
+
+
+    /* End of 3 phase inverter control alghorithm */
+
+
+
+
     // store values for display within CCS or GUI
     DLOG_GEN_update();
     
+
+
+
+    /* If overcurrent trip event has occured, shut down power stage
+     * and signalise with red LED.
+     */
+    if(PCB_TRIP_OC_read() == TRUE)
+    {
+    	trip_oc_flag = TRUE;
+    }
+
+    if(trip_oc_flag == TRUE)
+    {
+    	SVM_trip();
+    	PCB_LED1_on();
+    }
+
     /* Test if new interrupt is already waiting.
      * If so, then something is seriously wrong.
      */
@@ -74,15 +115,16 @@ void interrupt PER_int(void)
          * stop the CPU
          *
          * Better solution would be to properly handle this event
-         * (shot down the power stage, ...)
+         * (shut down the power stage, ...)
          */
         if (interrupt_overflow_counter >= 10)
         {
+        	SVM_trip();
             asm(" ESTOP0");
         }
     }
     
-    // stop the sCPU load stopwatch
+    // stop the CPU load stopwatch
     TIC_stop();
 
 }   // end of PWM_int

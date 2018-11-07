@@ -23,18 +23,20 @@
 
 #define     ADC_B2    		(AdcbResultRegs.ADCRESULT0)
 #define     ADC_B3    		(AdcbResultRegs.ADCRESULT1)
-#define     ADC_14    		(AdcbResultRegs.ADCRESULT2)
-#define     ADC_15    		(AdcbResultRegs.ADCRESULT3)
+#define     ADC_B4    		(AdcbResultRegs.ADCRESULT2)
+#define     ADC_B5    		(AdcbResultRegs.ADCRESULT3)
+#define     ADC_14       	(AdccResultRegs.ADCRESULT4)
 
 #define     ADC_C2       	(AdccResultRegs.ADCRESULT0)
 #define     ADC_C3       	(AdccResultRegs.ADCRESULT1)
 #define     ADC_C4       	(AdccResultRegs.ADCRESULT2)
+#define     ADC_C5       	(AdccResultRegs.ADCRESULT3)
+#define     ADC_15       	(AdccResultRegs.ADCRESULT4)
 
-#define     ADC_D0       	(AdcdResultRegs.ADCRESULT0)
-#define     ADC_D1       	(AdcdResultRegs.ADCRESULT1)
-#define     ADC_D2       	(AdcdResultRegs.ADCRESULT2)
-#define     ADC_D3       	(AdcdResultRegs.ADCRESULT3)
-#define     ADC_D4       	(AdcdResultRegs.ADCRESULT4)
+#define     ADC_D2       	(AdcdResultRegs.ADCRESULT0)
+#define     ADC_D3       	(AdcdResultRegs.ADCRESULT1)
+#define     ADC_D4       	(AdcdResultRegs.ADCRESULT2)
+#define     ADC_D5       	(AdcdResultRegs.ADCRESULT3)
 
 
 /**************************************************************
@@ -43,9 +45,27 @@
 extern void ADC_init(void);
 
 /**************************************************************
-* Function which waits for the ADC to finish with current seqence
+* Function which waits for the ADC A to finish with current seqence
 * return: void
 **************************************************************/
-extern void ADC_wait(void);
+extern void ADC_A_wait(void);
+
+/**************************************************************
+* Function which waits for the ADC B to finish with current seqence
+* return: void
+**************************************************************/
+extern void ADC_B_wait(void);
+
+/**************************************************************
+* Function which waits for the ADC C to finish with current seqence
+* return: void
+**************************************************************/
+extern void ADC_C_wait(void);
+
+/**************************************************************
+* Function which waits for the ADC D to finish with current seqence
+* return: void
+**************************************************************/
+extern void ADC_D_wait(void);
 
 #endif /* __ADC_DRV_H__ */

@@ -39,12 +39,9 @@ void main(void)
     // communication stack initialization
     COMM_initialization();
 
-    // initialize DAC - use internal reference
-    DAC_init(FALSE);
-
     // initialize ADC and PWM
     ADC_init();
-    PWM_init();
+    SVM_init();
 
     // initialize periodic interrupt function
     PER_int_setup();
@@ -54,7 +51,7 @@ void main(void)
     ERTM;
 
     // start timer, which will trigger ADC and an interrupt
-    PWM_start();
+    SVM_start();
 
     // proceed to background loop code
     BACK_loop();
