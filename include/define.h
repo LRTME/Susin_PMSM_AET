@@ -37,4 +37,42 @@ typedef enum {FALSE = 0, TRUE} bool;
 // 0 stop immediately, 1 stop when finished, 2 run free
 #define     DEBUG_STOP      0
 
+
+
+
+
+/* nazivni podatki PMSM-ja */
+
+// nazivna napetost in norma [V]
+#define     NORMA_U         24.0
+// nazivni tok in norma [A]
+#define     NORMA_I         40.0
+//  impedanca norma [Ohm]
+#define     NORMA_Z         NORMA_U/NORMA_I
+// nazivni navor in norma [Nm]
+#define     NORMA_M         5.89
+// nazivna vrtilna hitrost in norma [vrt/min]
+#define     NORMA_n         900
+// norma mehanskega kota [vrt]
+#define     NORMA_KOT_MEH   1.0
+
+
+/* parametri PMSM-ja */
+
+// polovi pari [1]
+#define     POLE_PAIR    	4
+// upornost statorskega navitja [Ohm]
+#define     Rs              46.9e-3
+// statorska induktivnost v vzdolzni smeri [H]
+#define     Ld              24e-6
+// statorska induktivnost v preèni smeri [H]
+#define     Lq              56e-6
+// mag. pretok trajnih magnetov [Wb]
+#define     PSI_ROT         0.019630984202985
+// vztrajnostni moment motorja [kgm^2]
+#define     J               0.004740530992912
+
+
+
+
 #endif // end of __DEFINE_H__ definition

@@ -19,6 +19,11 @@
 #include    "ADC_drv.h"
 #include    "PCB_util.h"
 
+#include 	"QEP_drv.h"
+#include    "SPI_drv.h"
+
+#include 	"TRIP_overcurrent.h"
+
 #include	"COMM_handlers.h"
 
 #endif // end of __MAIN_H__ definition

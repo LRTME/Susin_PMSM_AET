@@ -15,6 +15,10 @@
 #include    "SVM_drv.h"
 #include    "ADC_drv.h"
 #include    "PCB_util.h"
+
+#include 	"QEP_drv.h"
+#include    "SPI_drv.h"
+
 #include    "math.h"
 
 #include    "DLOG_gen.h"

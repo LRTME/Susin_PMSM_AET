@@ -75,10 +75,10 @@ void ADC_init(void)
 
     // ADCA channel setup
     EALLOW;
-    AdcaRegs.ADCSOC0CTL.bit.CHSEL = 2;          // SOC0 will convert pin ADCINA2
+    AdcaRegs.ADCSOC0CTL.bit.CHSEL = 2;          // SOC0 will convert pin ADCINA2 (CURRENT 3)
     AdcaRegs.ADCSOC0CTL.bit.ACQPS = acqps_set;  // sample window
     AdcaRegs.ADCSOC0CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
-
+/*
     AdcaRegs.ADCSOC1CTL.bit.CHSEL = 3;          // SOC1 will convert pin ADCINA3
     AdcaRegs.ADCSOC1CTL.bit.ACQPS = acqps_set;  // sample window
     AdcaRegs.ADCSOC1CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
@@ -86,8 +86,8 @@ void ADC_init(void)
     AdcaRegs.ADCSOC2CTL.bit.CHSEL = 4;          // SOC2 will convert pin ADCINA4
     AdcaRegs.ADCSOC2CTL.bit.ACQPS = acqps_set;  // sample window
     AdcaRegs.ADCSOC2CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
-
-    AdcaRegs.ADCSOC3CTL.bit.CHSEL = 5;          // SOC3 will convert pin ADCINA5
+*/
+    AdcaRegs.ADCSOC3CTL.bit.CHSEL = 5;          // SOC3 will convert pin ADCINA5 (VOLTAGE 3)
     AdcaRegs.ADCSOC3CTL.bit.ACQPS = acqps_set;  // sample window
     AdcaRegs.ADCSOC3CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
 
@@ -95,16 +95,20 @@ void ADC_init(void)
     AdcaRegs.ADCSOC4CTL.bit.ACQPS = 140;        // sample window 700 ns
     AdcaRegs.ADCSOC4CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
 
-    // EOC3 will raise interrupt flag
-    AdcaRegs.ADCINTSEL1N2.bit.INT1SEL = 3;      // end of SOC3 will set INT1 flag
+    AdcaRegs.ADCSOC5CTL.bit.CHSEL = 0;          // SOC5 will convert pin ADCINA0 (potenciometer)
+    AdcaRegs.ADCSOC5CTL.bit.ACQPS = acqps_set;  // sample window
+    AdcaRegs.ADCSOC5CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
+
+    // EOC5 will raise interrupt flag
+    AdcaRegs.ADCINTSEL1N2.bit.INT1SEL = 5;      // end of SOC5 will set INT1 flag
     AdcaRegs.ADCINTSEL1N2.bit.INT1E = 1;        // enable INT1 flag
     AdcaRegs.ADCINTFLGCLR.bit.ADCINT1 = 1;      // make sure INT1 flag is cleared
 
     // ADCB channel setup
-    AdcbRegs.ADCSOC0CTL.bit.CHSEL = 2;          // SOC0 will convert pin ADCINB2
+    AdcbRegs.ADCSOC0CTL.bit.CHSEL = 2;          // SOC0 will convert pin ADCINB2 (CURRENT 2)
     AdcbRegs.ADCSOC0CTL.bit.ACQPS = acqps_set;  // sample window
     AdcbRegs.ADCSOC0CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
-
+/*
     AdcbRegs.ADCSOC1CTL.bit.CHSEL = 3;          // SOC1 will convert pin ADCINB3
     AdcbRegs.ADCSOC1CTL.bit.ACQPS = acqps_set;  // sample window
     AdcbRegs.ADCSOC1CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
@@ -112,25 +116,25 @@ void ADC_init(void)
     AdcbRegs.ADCSOC2CTL.bit.CHSEL = 4;          // SOC2 will convert pin ADCINB4
     AdcbRegs.ADCSOC2CTL.bit.ACQPS = acqps_set;  // sample window
     AdcbRegs.ADCSOC2CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
-
-    AdcbRegs.ADCSOC3CTL.bit.CHSEL = 5;          // SOC3 will convert pin ADCINB5
+*/
+    AdcbRegs.ADCSOC3CTL.bit.CHSEL = 5;          // SOC3 will convert pin ADCINB5 (VOLTAGE 2)
     AdcbRegs.ADCSOC3CTL.bit.ACQPS = acqps_set;  // sample window
     AdcbRegs.ADCSOC3CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
 
-    AdcbRegs.ADCSOC4CTL.bit.CHSEL = 14;         // SOC4 will convert pin ADCIN14
+    AdcbRegs.ADCSOC4CTL.bit.CHSEL = 15;         // SOC4 will convert pin ADCIN15 (DC link voltage)
     AdcbRegs.ADCSOC4CTL.bit.ACQPS = acqps_set;  // sample window
     AdcbRegs.ADCSOC4CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
 
     // EOC4 will raise interrupt flag
-    AdcbRegs.ADCINTSEL1N2.bit.INT2SEL = 3;      // end of SOC4 will set INT2 flag
-    AdcbRegs.ADCINTSEL1N2.bit.INT2E = 1;        // enable INT2 flag
-    AdcbRegs.ADCINTFLGCLR.bit.ADCINT2 = 1;      // make sure INT2 flag is cleared
+    AdcbRegs.ADCINTSEL1N2.bit.INT1SEL = 4;      // end of SOC4 will set INT1 flag
+    AdcbRegs.ADCINTSEL1N2.bit.INT1E = 1;        // enable INT1 flag
+    AdcbRegs.ADCINTFLGCLR.bit.ADCINT1 = 1;      // make sure INT1 flag is cleared
 
     // ADCC channel setup
-    AdccRegs.ADCSOC0CTL.bit.CHSEL = 2;          // SOC0 will convert pin ADCINC2
+    AdccRegs.ADCSOC0CTL.bit.CHSEL = 2;          // SOC0 will convert pin ADCINC2 (CURRENT 1)
     AdccRegs.ADCSOC0CTL.bit.ACQPS = acqps_set;  // sample window
     AdccRegs.ADCSOC0CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
-
+/*
     AdccRegs.ADCSOC1CTL.bit.CHSEL = 3;          // SOC1 will convert pin ADCINC3
     AdccRegs.ADCSOC1CTL.bit.ACQPS = acqps_set;  // sample window
     AdccRegs.ADCSOC1CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
@@ -138,21 +142,22 @@ void ADC_init(void)
     AdccRegs.ADCSOC2CTL.bit.CHSEL = 4;          // SOC2 will convert pin ADCINC4
     AdccRegs.ADCSOC2CTL.bit.ACQPS = acqps_set;  // sample window
     AdccRegs.ADCSOC2CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
-
-    AdccRegs.ADCSOC3CTL.bit.CHSEL = 5;          // SOC3 will convert pin ADCINC5
+*/
+    AdccRegs.ADCSOC3CTL.bit.CHSEL = 5;          // SOC3 will convert pin ADCINC5 (VOLTAGE 1)
     AdccRegs.ADCSOC3CTL.bit.ACQPS = acqps_set;  // sample window
     AdccRegs.ADCSOC3CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
-
+/*
     AdccRegs.ADCSOC4CTL.bit.CHSEL = 15;         // SOC4 will convert pin ADCIN15
     AdccRegs.ADCSOC4CTL.bit.ACQPS = acqps_set;  // sample window
     AdccRegs.ADCSOC4CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
-
-    // EOC4 will raise interrupt flag
-    AdccRegs.ADCINTSEL1N2.bit.INT2SEL = 4;      // end of SOC4 will set INT4 flag
-    AdccRegs.ADCINTSEL1N2.bit.INT2E = 1;        // enable INT2 flag
-    AdccRegs.ADCINTFLGCLR.bit.ADCINT2 = 1;      // make sure INT2 flag is cleared
+*/
+    // EOC3 will raise interrupt flag
+    AdccRegs.ADCINTSEL1N2.bit.INT1SEL = 3;      // end of SOC4 will set INT1 flag
+    AdccRegs.ADCINTSEL1N2.bit.INT1E = 1;        // enable INT1 flag
+    AdccRegs.ADCINTFLGCLR.bit.ADCINT1 = 1;      // make sure INT1 flag is cleared
 
     // ADCD channel setup
+/*
     AdcdRegs.ADCSOC0CTL.bit.CHSEL = 2;          // SOC0 will convert pin ADCIND2
     AdcdRegs.ADCSOC0CTL.bit.ACQPS = acqps_set;  // sample window
     AdcdRegs.ADCSOC0CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
@@ -169,15 +174,15 @@ void ADC_init(void)
     AdcdRegs.ADCSOC3CTL.bit.TRIGSEL = 5;        // trigger on ePWM1 SOCA/C
 
     // EOC4 will raise interrupt flag
-    AdcdRegs.ADCINTSEL1N2.bit.INT2SEL = 4;      // end of SOC4 will set INT2 flag
-    AdcdRegs.ADCINTSEL1N2.bit.INT2E = 1;        // enable INT2 flag
-    AdcdRegs.ADCINTFLGCLR.bit.ADCINT2 = 1;      // make sure INT2 flag is cleared
-
+    AdcdRegs.ADCINTSEL1N2.bit.INT1SEL = 4;      // end of SOC4 will set INT1 flag
+    AdcdRegs.ADCINTSEL1N2.bit.INT1E = 1;        // enable INT1 flag
+    AdcdRegs.ADCINTFLGCLR.bit.ADCINT1 = 1;      // make sure INT1 flag is cleared
+*/
     EDIS;
 
     // ADC trigger setup
     // trigger when PWM timer is at zero
-    ADC_MODUL1.ETSEL.bit.SOCASEL = ET_CTR_ZERO;
+    ADC_MODUL1.ETSEL.bit.SOCASEL = ET_CTR_PRD;
     // trigger every time
     ADC_MODUL1.ETPS.bit.SOCAPRD = 1;
     // clear any previous triggers

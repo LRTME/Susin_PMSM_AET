@@ -15,22 +15,23 @@
 #define     ADC_MODUL1      EPwm1Regs
 
 // map the results registers to defines, for easier reconfiguration
-#define     ADC_A2    		(AdcaResultRegs.ADCRESULT0)
+#define     ADC_CURRENT_3  	(AdcaResultRegs.ADCRESULT0)
 #define     ADC_A3    		(AdcaResultRegs.ADCRESULT1)
 #define     ADC_A4       	(AdcaResultRegs.ADCRESULT2)
-#define     ADC_A5			(AdcaResultRegs.ADCRESULT3)
+#define     ADC_VOLTAGE_3	(AdcaResultRegs.ADCRESULT3)
 #define     ADC_TEMP        (AdcaResultRegs.ADCRESULT4)
+#define     ADC_POT         (AdcaResultRegs.ADCRESULT5)
 
-#define     ADC_B2    		(AdcbResultRegs.ADCRESULT0)
+#define     ADC_CURRENT_2	(AdcbResultRegs.ADCRESULT0)
 #define     ADC_B3    		(AdcbResultRegs.ADCRESULT1)
 #define     ADC_B4    		(AdcbResultRegs.ADCRESULT2)
-#define     ADC_B5    		(AdcbResultRegs.ADCRESULT3)
-#define     ADC_14       	(AdccResultRegs.ADCRESULT4)
+#define     ADC_VOLTAGE_2   (AdcbResultRegs.ADCRESULT3)
+#define     ADC_VOLTAGE_DC 	(AdcbResultRegs.ADCRESULT4)
 
-#define     ADC_C2       	(AdccResultRegs.ADCRESULT0)
+#define     ADC_CURRENT_1   (AdccResultRegs.ADCRESULT0)
 #define     ADC_C3       	(AdccResultRegs.ADCRESULT1)
 #define     ADC_C4       	(AdccResultRegs.ADCRESULT2)
-#define     ADC_C5       	(AdccResultRegs.ADCRESULT3)
+#define     ADC_VOLTAGE_1   (AdccResultRegs.ADCRESULT3)
 #define     ADC_15       	(AdccResultRegs.ADCRESULT4)
 
 #define     ADC_D2       	(AdcdResultRegs.ADCRESULT0)

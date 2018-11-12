@@ -13,6 +13,8 @@
 
 // interrupt counter
 extern volatile long    interrupt_cnt;
+extern volatile long    interrupt_cnt_s;
+extern volatile long    interrupt_cnt_min;
 
 // DLOG trigger selection
 extern volatile enum TRIGGER {Ref_cnt = 0, Napetost} trigger;

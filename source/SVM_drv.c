@@ -126,21 +126,23 @@ void SVM_init(void)
 
     // trip zone functionality
     EALLOW;
-    SVM_MODUL1.TZSEL.bit.OSHT1 = 0;      // TZ1 triggers tripzone
     SVM_MODUL1.TZCTL.bit.TZA = 2;        // force low
     SVM_MODUL1.TZCTL.bit.TZB = 2;        // force low
     SVM_MODUL1.TZCLR.bit.OST = 1;        // clear any pending flags
+    SVM_MODUL1.TZSEL.bit.OSHT1 = TZ_DISABLE;      // TZ1 triggers tripzone disabled
 
-    SVM_MODUL2.TZSEL.bit.OSHT1 = 0;      // TZ1 triggers tripzone
     SVM_MODUL2.TZCTL.bit.TZA = 2;        // force low
     SVM_MODUL2.TZCTL.bit.TZB = 2;        // force low
     SVM_MODUL2.TZCLR.bit.OST = 1;        // clear any pending flags
+    SVM_MODUL2.TZSEL.bit.OSHT1 = TZ_DISABLE;      // TZ1 triggers tripzone disabled
 
-    SVM_MODUL3.TZSEL.bit.OSHT1 = 0;      // TZ1 triggers tripzone
     SVM_MODUL3.TZCTL.bit.TZA = 2;        // force low
     SVM_MODUL3.TZCTL.bit.TZB = 2;        // force low
     SVM_MODUL3.TZCLR.bit.OST = 1;        // clear any pending flags
+    SVM_MODUL3.TZSEL.bit.OSHT1 = TZ_DISABLE;      // TZ1 triggers tripzone disabled
     EDIS;
+
+
     // event trigger module
 
     // output pin setup
@@ -220,9 +222,11 @@ void SVM_disable(void)
 **************************************************************/
 void SVM_trip(void)
 {
+	EALLOW;
     SVM_MODUL1.TZFRC.bit.OST = 1;
     SVM_MODUL2.TZFRC.bit.OST = 1;
     SVM_MODUL3.TZFRC.bit.OST = 1;
+    EDIS;
 
     svm_status = TRIP;
 }
@@ -675,7 +679,7 @@ void SVM_update_bldc(float svm_duty, int svm_sektor)
 * arg2:    napetost Ubeta [-1.0, +1.0] (IQ format)
 **************************************************************/
 #pragma CODE_SECTION(SVM_update, "ramfuncs");
-void SVM_update(float Ualpha, float Ubeta) 
+void SVM_update(float Ualpha, float Ubeta)
 {
 
     /* lokalne spremenljivke */

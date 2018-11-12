@@ -29,7 +29,6 @@
 // dead time (v nano sekundah)
 #define     SVM_DEAD_TIME   400.0
 
-
 // nacin delovanja casovnika ob emulation stop
 // (0-stop at zero, 1-stop immediately, 2-run free)
 #define     SVM_DEBUG_MODE  0

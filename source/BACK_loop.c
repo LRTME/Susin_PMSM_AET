@@ -28,6 +28,10 @@ bool 	b1_press = FALSE;
 bool 	b2_press = FALSE;
 bool 	b3_press = FALSE;
 bool 	b4_press = FALSE;
+bool 	b1_press_int = FALSE;
+bool 	b2_press_int = FALSE;
+bool 	b3_press_int = FALSE;
+bool 	b4_press_int = FALSE;
 
 // declaration of external variables
 
@@ -61,8 +65,13 @@ void BACK_loop(void)
 
         // communication stack
         COMM_runtime();
-
-
+/*
+        // zelena LED utripa s frekvenco 1 Hz in s tem signalizira pravilno delovanje
+        if(pulse_500ms == TRUE)
+        {
+        	PCB_LED2_toggle();
+        }
+*/
         // toggling LED with button press
 /*
         if (b1_press == TRUE)
@@ -234,11 +243,13 @@ void scan_keys(void)
         if (b1_cnt == cnt_limit)
         {
             b1_press = TRUE;
+            b1_press_int = TRUE;
         }
         // sicer pa ne javi
         else
         {
             b1_press = FALSE;
+            b1_press_int = FALSE;
         }
 
         // ali smo pritisnili na tipko 2
@@ -257,11 +268,13 @@ void scan_keys(void)
 		if (b2_cnt == cnt_limit)
 		{
 			b2_press = TRUE;
+			b2_press_int = TRUE;
 		}
 		// sicer pa ne javi
 		else
 		{
 			b2_press = FALSE;
+			b2_press_int = FALSE;
 		}
 
         // ali smo pritisnili na tipko 3
@@ -280,11 +293,13 @@ void scan_keys(void)
 		if (b3_cnt == cnt_limit)
 		{
 			b3_press = TRUE;
+			b3_press_int = TRUE;
 		}
 		// sicer pa ne javi
 		else
 		{
 			b3_press = FALSE;
+			b3_press_int = FALSE;
 		}
 
         // ali smo pritisnili na tipko 4
@@ -303,11 +318,13 @@ void scan_keys(void)
 		if (b4_cnt == cnt_limit)
 		{
 			b4_press = TRUE;
+			b4_press_int = TRUE;
 		}
 		// sicer pa ne javi
 		else
 		{
 			b4_press = FALSE;
+			b4_press_int = FALSE;
 		}
     }
     // da je pulz dolg res samo in samo eno iteracijo
