@@ -60,7 +60,7 @@ typedef enum {FALSE = 0, TRUE} bool;
 /* parametri PMSM-ja */
 
 // polovi pari [1]
-#define     POLE_PAIR    	4
+#define     POLE_PAIRS    	4
 // upornost statorskega navitja [Ohm]
 #define     Rs              46.9e-3
 // statorska induktivnost v vzdolzni smeri [H]

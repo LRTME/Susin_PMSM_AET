@@ -5,7 +5,7 @@
 * START DATE:   16.1.2009
 * VERSION:      2.1
 * CHANGES:
-*               Denis Susin     6.11.2018     Implementacija lastne funkcije SVM_update in
+*               Denis Susin     13.11.2018    Implementacija lastne funkcije SVM_update in
 *               							  popravki kode za potrebe procesorja Delfino TMSF28379D in
 *               							  preurejen vrstni red funkcij
 ****************************************************************/
@@ -688,7 +688,7 @@ void SVM_update(float Ualpha, float Ubeta)
     float duty_a;
     float duty_b;
     float duty_c;
-    int Sector = 0;
+    int sector = 0;
 
 
     unsigned int compare;
@@ -718,58 +718,58 @@ void SVM_update(float Ualpha, float Ubeta)
         }
         
 
-        // 60 degree Sector determination
+        // 60 degree sector determination
         if (Ubeta >= 0.0)                            // sectors 1, 2, 3
             {
             if (Ubeta < SQRT3*Ualpha)
             {
-               Sector = 1;
+               sector = 1;
             }
             else if (Ubeta <= -SQRT3*Ualpha)
             {
-               Sector = 3;
+               sector = 3;
             }
             else
             {
-               Sector = 2;
+               sector = 2;
             }
         }
         else                                        // sectors 4, 5, 6
         {
             if (-Ubeta <= SQRT3*Ualpha)
             {
-                Sector = 6;
+                sector = 6;
             }
             else if (-Ubeta < -SQRT3*Ualpha)
             {
-                Sector = 4;
+                sector = 4;
             }
             else
             {
-                Sector = 5;
+                sector = 5;
             }
         }
 
 
-        if (Ubeta == 0 && Ualpha < 0)               // special condition for voltage vector (0,1,1), which is in sector 4
+        if (Ubeta == 0.0 && Ualpha < 0.0)               // special condition for voltage vector (0,1,1), which is in sector 4
         {
-            Sector = 4;
+            sector = 4;
         }
 
-        if (Ubeta == 0 && Ualpha == 0)              // no voltage desired
+        if (Ubeta == 0.0 && Ualpha == 0.0)              // no voltage desired
         {
-            Sector = 0;
+            sector = 0;
         }
 
 
         // d_sector, d_sector_plus_1 (duty_a,duty_b,duty_c) calculations
-        if (Sector == 0)  // Sector 0: this is special case for (Ualpha,Ubeta) = (0,0); voltage vector is (0,0,0) and (1,1,1) - half of period each
+        if (sector == 0)  // sector 0: this is special case for (Ualpha,Ubeta) = (0,0); voltage vector is (0,0,0) and (1,1,1) - half of period each
         {
            duty_a = 0.5;
            duty_b = 0.5;
            duty_c = 0.5;
         }
-        if (Sector == 1)
+        if (sector == 1)
         {
            d_sector = Ualpha - Ubeta/SQRT3;                             // d1
            d_sector_plus_1 = 2*Ubeta/SQRT3;                             // d2
@@ -778,7 +778,7 @@ void SVM_update(float Ualpha, float Ubeta)
            duty_b = duty_c + d_sector_plus_1;                           // db = d2 + d7
            duty_a = duty_b + d_sector;                                  // da = d1 + d2 + d7
         }
-        else if (Sector == 2)
+        else if (sector == 2)
         {
             d_sector = Ualpha + Ubeta/SQRT3;                            // d2
             d_sector_plus_1 = -Ualpha + Ubeta/SQRT3;                    // d3
@@ -787,7 +787,7 @@ void SVM_update(float Ualpha, float Ubeta)
             duty_a = duty_c + d_sector;                                 // da = d2 + d7
             duty_b = duty_a + d_sector_plus_1;                          // db = d2 + d3 + d7
         }      
-        else if (Sector == 3)
+        else if (sector == 3)
         {
             d_sector = 2*Ubeta/SQRT3;                                   // d3
             d_sector_plus_1 = -Ualpha - Ubeta/SQRT3;                    // d4
@@ -796,7 +796,7 @@ void SVM_update(float Ualpha, float Ubeta)
             duty_c = duty_a + d_sector_plus_1;                          // dc = d4 + d7
             duty_b = duty_c + d_sector;                                 // db = d3 + d4 + d7
         }   
-        else if (Sector == 4)
+        else if (sector == 4)
         {
             d_sector = -Ualpha + Ubeta/SQRT3;                           // d4
             d_sector_plus_1 = -2*Ubeta/SQRT3;                           // d5
@@ -805,7 +805,7 @@ void SVM_update(float Ualpha, float Ubeta)
             duty_b = duty_a + d_sector;                                 // db = d4 + d7
             duty_c = duty_b + d_sector_plus_1;                          // dc = d4 + d5 + d7
         }   
-        else if (Sector == 5)
+        else if (sector == 5)
         {
             d_sector = -Ualpha - Ubeta/SQRT3;                           // d5
             d_sector_plus_1 = Ualpha - Ubeta/SQRT3;                     // d6
@@ -814,7 +814,7 @@ void SVM_update(float Ualpha, float Ubeta)
             duty_a = duty_b + d_sector_plus_1;                          // da = d6 + d7
             duty_c = duty_a + d_sector;                                 // dc = d5 + d6 + d7
         }   
-        else if (Sector == 6)
+        else if (sector == 6)
         {
             d_sector = -2*Ubeta/SQRT3;                                  // d6
             d_sector_plus_1 = Ualpha + Ubeta/SQRT3;                     // d1

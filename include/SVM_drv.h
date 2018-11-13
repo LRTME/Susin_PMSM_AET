@@ -5,7 +5,7 @@
 * START DATE:   16.1.2009
 * VERSION:      2.1
 * CHANGES:
-*               Denis Susin     6.11.2018     Implementacija lastne funkcije SVM_update in
+*               Denis Susin     13.11.2018    Implementacija lastne funkcije SVM_update in
 *               							  popravki kode za potrebe procesorja Delfino TMSF28379D in
 *               							  preurejen vrstni red funkcij
 ****************************************************************/
@@ -23,8 +23,10 @@
 #define     SVM_MODUL2      EPwm2Regs
 #define     SVM_MODUL3      EPwm3Regs
 
+#define		EPWM_FREQ		(CPU_FREQ/2)
+
 // perioda casovnika (v procesorskih cikilh) 
-#define     SVM_PERIOD      ((CPU_FREQ/SWITCH_FREQ) - 1)
+#define     SVM_PERIOD      ((EPWM_FREQ/SWITCH_FREQ) - 1)
 
 // dead time (v nano sekundah)
 #define     SVM_DEAD_TIME   400.0

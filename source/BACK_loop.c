@@ -71,9 +71,9 @@ void BACK_loop(void)
         {
         	PCB_LED2_toggle();
         }
-*/
+
         // toggling LED with button press
-/*
+
         if (b1_press == TRUE)
         {
             PCB_LED1_toggle();
@@ -143,7 +143,7 @@ void pulse_gen(void)
         pulse_100ms = FALSE;
     }
 
-    // stejem pulze po 100ms, da dobim pulz 500 ss
+    // stejem pulze po 100ms, da dobim pulz 500 ms
     if (pulse_100ms == 1)
     {
         pulse_500ms_cnt = pulse_500ms_cnt + 1;

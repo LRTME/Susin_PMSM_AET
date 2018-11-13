@@ -25,6 +25,7 @@ bool 	trip_oc_flag = FALSE;
 
 
 // mechanical variables
+bool 	incremental_encoder_connected = FALSE;
 int		kot_raw = 0;
 float	kot_meh = 0.0;
 float	kot_el = 0.0;
@@ -64,17 +65,30 @@ float	nap_dc = 0.0;
 // other electrical variables
 float	pot_rel = 0.0;
 
-// control algorithm variables
+/* control algorithm variables */
+// general variables
 bool	set_null_position_flag = FALSE;
-enum 	CONTROL_MODE 	{SIX_STEP=0, SVM};
-enum	CONTROL_MODE	control_mode = SIX_STEP;
-float	duty_DC = 0.5;
-float 	duty_six_step = 0.1;
+bool	reset_null_position_procedure = FALSE;
+bool	control_enable_flag = FALSE;
+float	duty_DC = 0.0;
+float 	duty_six_step = 0.0;
 int 	sector_six_step = 1;
 float	V_alpha = 0.0;
 float	V_beta = 0.0;
-float	amp_rel = 0.1;
+float	amp_rel = 0.0;
 float	freq = 0.0;
+float	freq_meh = 0.0;
+
+volatile enum	MODULATION modulation = SVM;
+volatile enum	CONTROL control = OPEN_LOOP;
+
+IPARK_float		voltage_open_loop = IPARK_FLOAT_DEFAULTS;
+
+// current variables
+CLARKE_float 	clarke_tok = CLARKE_FLOAT_DEFAULTS;
+PARK_float 		park_tok = PARK_FLOAT_DEFAULTS;
+float	tok_d = 0.0;
+float	tok_q = 0.0;
 
 // temporary variables
 float 	temp1 = 0.0;
@@ -95,7 +109,12 @@ void 	get_mechanical(void);
 void 	get_meh_speed(void);
 void 	get_meh_accel(void);
 void 	get_electrical(void);
-void 	set_null_position(void);
+void 	set_null_position(bool reset_procedure);
+void	control_algorithm(void);
+void	open_loop_control(void);
+void	current_loop_control(void);
+void	speed_loop_control(void);
+void	position_loop_control(void);
 
 /**************************************************************
 * interrupt funcion
@@ -149,45 +168,80 @@ void interrupt PER_int(void)
     get_electrical();
 
 
+
+
     /* 3 phase inverter control alghorithm */
 
-    freq = pot_rel*20.0;
-
-	V_alpha = amp_rel*cos(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
-	V_beta = amp_rel*sin(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
-
-    if(sw1_state == FALSE)
+    // b2 changes modulation mode
+    if(b2_press_int == TRUE)
     {
-    	SVM_enable();
-    	SVM_bootstrap();
-    	PCB_LED2_off();
+    	modulation = modulation + 1;
     }
-    else
+    if(modulation == 3)
     {
-    	SVM_enable();
-    	switch(control_mode)
-    	{
-			case SIX_STEP:
-				// SVM_update_DC(duty_DC);
-				SVM_update_six(duty_six_step, sector_six_step);
-				break;
-			case SVM:
-				SVM_update(V_alpha, V_beta);
-				break;
-			default:
-				SVM_disable();
-				break;
-    	}
-    	PCB_LED2_on();
+    	modulation = 0;
     }
 
+    // b3 changes control mode
+    if(b3_press_int == TRUE)
+    {
+    	control = control + 1;
+    }
+    if(control == 4)
+    {
+    	control = 0;
+    }
+
+    // b4 toggles LED4
     if(b4_press_int == TRUE)
     {
     	PCB_LED4_toggle();
     }
 
+    if(modulation != SVM)
+    {
+    	control = OPEN_LOOP;
+    }
 
+	// switch 1 means on/off
+    if(sw1_state == FALSE)
+    {
+    	SVM_disable();
+    	PCB_LED2_off();
+    	set_null_position_flag = FALSE;
+    	control_enable_flag = FALSE;
+    	reset_null_position_procedure = TRUE;
+    	incremental_encoder_connected = FALSE;
+    }
+    else
+    {
+    	if(set_null_position_flag == FALSE)
+    	{
+    		set_null_position(reset_null_position_procedure);
+    		reset_null_position_procedure = FALSE;
+    	}
+    	else
+    	{
+    		if(b1_press_int == TRUE && control_enable_flag == FALSE && pot_rel < 0.1)
+    		{
+    			control_enable_flag = TRUE;
+    			SVM_enable();
+    			SVM_update(0.0, 0.0);
+    			PCB_LED2_on();
+    		}
+    		else if(b1_press_int == TRUE && control_enable_flag == TRUE)
+    		{
+    			control_enable_flag = FALSE;
+    			SVM_disable();
+    			PCB_LED2_off();
+    		}
+    	} // end of null position
+    } // end of enable switch
 
+    if(control_enable_flag == TRUE)
+    {
+    	control_algorithm();
+    }
 
     /* End of 3 phase inverter control alghorithm */
 
@@ -266,11 +320,11 @@ void interrupt PER_int(void)
 
 
 /**************************************************************
-* Funkcija, ki pomeri mehanske velièine:
-* - mehanski kot [0.0 1.0]   (1.0 pomeni en cel obrat)
-* - elektrièni kot [0.0 1.0] (1.0 pomeni, da se je rotor zavrtel za èetrtino obrata, v primeru  P = 4)
-* - klièe podprogram za izraèun mehanske hitrosti
-* * - klièe podprogram za izraèun mehanskega pospeska
+* Function, where mechanical measurements is handled:
+* - mechanical angle [0.0 1.0] (1.0 means one full mechanical revolution)
+* - electrical angle [0.0 1.0] (1.0 means one quarter of revolution, if pole pair is 4)
+* - calls function for mechanical speed calculation
+* - calls function for mechanical acceleration calculation
 **************************************************************/
 #pragma CODE_SECTION(get_mechanical, "ramfuncs");
 void get_mechanical(void)
@@ -300,7 +354,7 @@ void get_mechanical(void)
     // elektrièni kot
 
     // iz mehanskega kota izraèunam še elektriènega
-    kot_el = POLE_PAIR*kot_meh;
+    kot_el = POLE_PAIRS*kot_meh;
 
 
     // omejim elektrièni kot od 0.0 do 1.0
@@ -309,7 +363,7 @@ void get_mechanical(void)
     	kot_el = kot_el + 1.0;
     }
     // odštejem zaradi polovih parov P, da dobim kot_el med 0.0 in 1.0
-    for (i = POLE_PAIR - 1; i > 0; i = i - 1)
+    for (i = POLE_PAIRS - 1; i > 0; i = i - 1)
     {
     	if (kot_el >= i*1.0)
     	{
@@ -329,9 +383,32 @@ void get_mechanical(void)
 
 
 
+/**************************************************************
+* Function, where mechanical speed is calculated (out of mechanical angle)
+**************************************************************/
+#pragma CODE_SECTION(get_meh_speed, "ramfuncs");
+void get_meh_speed(void)
+{
+
+}
+
+
+
 
 /**************************************************************
-* Funkcija, ki pomeri elektriène velièine.
+* Function, where mechanical acceleration is calculated (out of mechanical angle)
+**************************************************************/
+#pragma CODE_SECTION(get_meh_accel, "ramfuncs");
+void get_meh_accel(void)
+{
+
+}
+
+
+
+
+/**************************************************************
+* Function, where electrical measurements is handled
 **************************************************************/
 #pragma CODE_SECTION(get_electrical, "ramfuncs");
 void get_electrical(void)
@@ -398,7 +475,7 @@ void get_electrical(void)
         pot_rel = pot_rel + 0.05;
     }
 */
-/*
+
     // Clarke-ina transformacija tokov
     clarke_tok.As = tok_i1;
     clarke_tok.Bs = tok_i2;
@@ -407,15 +484,15 @@ void get_electrical(void)
     // Park-ova transformacija tokov
     park_tok.Alpha = clarke_tok.Alpha;
     park_tok.Beta = clarke_tok.Beta;
-    park_tok.Angle = kot_el * 2 * PI;
-    PARK_float_calc(&park_tok);
+    park_tok.Angle = 2 * PI * kot_el;
+    PARK_FLOAT_CALC(park_tok);
     tok_d = park_tok.Ds;
     tok_q = park_tok.Qs;
-*/
+
 /*
     // izraèun dejanskega navora
-    navor_elektromagnetni = 3.0/2.0*POLE_PAIR*PSI_ROT*tok_q;
-    navor_reluktancni = 3.0/2.0*POLE_PAIR*(Ld - Lq)*tok_d*tok_q;
+    navor_elektromagnetni = 3.0/2.0*POLE_PAIRS*PSI_ROT*tok_q;
+    navor_reluktancni = 3.0/2.0*POLE_PAIRS*(Ld - Lq)*tok_d*tok_q;
 
     navor = navor_elektromagnetni + navor_reluktancni;
 
@@ -428,37 +505,249 @@ void get_electrical(void)
 
 
 /**************************************************************
-* Funkcija, ki poravna d os rotorja PMSM-ja z osjo faze 1.
+* Function, which alignes d axis with phase 1 axis
 **************************************************************/
 #pragma CODE_SECTION(set_null_position, "ramfuncs");
-void set_null_position(void)
+void set_null_position(bool reset_procedure)
 {
-    float 	duty_cycle = 0.1;
+	/* Vnaprej vem, da moram v kratkem stiku na posamezno
+	 * fazo PMSM-ja pritisniti 2V, da se bo zavrtel v pravo lego.
+	 */
+    float 	duty_cycle = 2.0/nap_dc;
     int 	sector;
-    static int interrupts_passed = 0;
 
-        if (interrupt_cnt < 0.5*SAMPLE_FREQ)    // pol sekunde pritiskam napetostni vektor v smeri faze 3
-        {
-            sector = 5;
-            SVM_update_six(duty_cycle, sector);
-        }
-        else                                    // pol sekunde pritiskam napetostni vektor v smeri faze 1
-        {
-            sector = 1;
-            SVM_update_six(duty_cycle, sector);
-            interrupts_passed = interrupts_passed + 1;
-        }
+    static int	i = 0;
+    static long interrupts_passed = 0;
 
-        if (interrupt_cnt == (SAMPLE_FREQ - 1) && interrupts_passed > SAMPLE_FREQ/2)     // èez nekaj èasa reèem to je pozicija 0, in postavim zastavico
-        {
-            set_null_position_flag = TRUE;
-            QEP_reset();
+    static unsigned int kot_raw = 0.0;
+    static unsigned int kot_raw_old = 0.0;
 
-            // onemogoèim mostiè
-            SVM_disable();
+	SVM_enable();
+	PCB_LED2_on();
+
+	if(reset_procedure == TRUE)
+	{
+		i = 0;
+		interrupts_passed = 0;
+		kot_raw = 0;
+	}
+
+    if (i == 0)    // pol sekunde pritiskam napetostni vektor v smeri faze 3
+    {
+        sector = 5;
+        SVM_update_six(duty_cycle, sector);
+        interrupts_passed = interrupts_passed + 1;
+
+        if(interrupts_passed > SAMPLE_FREQ/2)
+        {
+        	i = 1;
+        	interrupts_passed = 0;
+
+        	// simple check if incremental encoder is connected
+        	kot_raw = QEP_cnt();
+        	if(kot_raw - kot_raw_old != 0)
+        	{
+        		kot_raw_old = kot_raw;
+        	}
         }
+    } // end of i == 0
+
+    if (i == 1)    // pol sekunde pritiskam napetostni vektor v smeri faze 1
+    {
+        sector = 1;
+        SVM_update_six(duty_cycle, sector);
+        interrupts_passed = interrupts_passed + 1;
+
+        if(interrupts_passed > SAMPLE_FREQ/2)
+        {
+        	i = 2;
+        	interrupts_passed = 0;
+
+        	// simple check if incremental encoder is connected
+        	kot_raw = QEP_cnt();
+        	if(kot_raw - kot_raw_old != 0)
+        	{
+        		incremental_encoder_connected = TRUE;
+        	}
+        }
+    } // end of i == 1
+
+    if (i == 2)     // èez nekaj èasa reèem to je pozicija 0, in postavim zastavico
+    {
+    	interrupts_passed = interrupts_passed + 1;
+
+    	if(interrupts_passed >= SAMPLE_FREQ/2)
+    	{
+    		set_null_position_flag = TRUE;
+    		interrupts_passed = 0;
+    		i = 0;
+
+    		// resetiram pozicijo rotorja
+    		QEP_reset();
+
+    		// onemogoèim mostiè
+    		SVM_disable();
+    		PCB_LED2_off();
+    	}
+    } // end of i == 2
 
 } // end of function
+
+
+
+
+
+/**************************************************************
+* Function, which covers control of 3 phase PMSM
+**************************************************************/
+#pragma CODE_SECTION(control_algorithm, "ramfuncs");
+void control_algorithm(void)
+{
+	switch(control)
+	{
+	case OPEN_LOOP:
+		open_loop_control();
+		break;
+	case CURRENT_CONTROL:
+		current_loop_control();
+		break;
+	case SPEED_CONTROL:
+		speed_loop_control();
+		break;
+	case POSITION_CONTROL:
+		position_loop_control();
+		break;
+	default:
+		SVM_disable();
+		PCB_LED2_off();
+		break;
+	}
+
+	switch(modulation)
+	{
+	case SVM:
+		SVM_update(V_alpha, V_beta);
+		break;
+	case SIX_STEP:
+		SVM_update_six(duty_six_step, sector_six_step);
+		break;
+	case SINGLE_PHASE_DC:
+		SVM_update_DC(duty_DC);
+		break;
+	default:
+		SVM_disable();
+		PCB_LED2_off();
+		break;
+	}
+}
+
+
+
+
+/**************************************************************
+* Function for open loop control
+**************************************************************/
+#pragma CODE_SECTION(open_loop_control, "ramfuncs");
+void open_loop_control(void)
+{
+	if(modulation == SVM)
+	{
+		if(incremental_encoder_connected == FALSE)
+		{
+			// if incremental encoder is NOT connnected
+			freq = POLE_PAIRS * freq_meh;
+			amp_rel = pot_rel;
+
+			V_alpha = amp_rel*cos(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
+			V_beta =  amp_rel*sin(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
+		}
+		else
+		{
+			// if incremental encoder is connnected
+			voltage_open_loop.Ds = 0.0;
+			voltage_open_loop.Qs = pot_rel*0.577;
+			voltage_open_loop.Angle = kot_el;
+
+			IPARK_FLOAT_CALC(voltage_open_loop);
+
+			V_alpha = voltage_open_loop.Alpha;
+			V_beta = voltage_open_loop.Beta;
+		}
+	}
+	else if(modulation == SIX_STEP)
+	{
+		// duty_six_step = 0.1;
+		// sector_six_step = 1;
+
+		if(pot_rel > 0.0)
+		{
+			sector_six_step = 1;
+		}
+		if(pot_rel > 0.15)
+		{
+			sector_six_step = 2;
+		}
+		if(pot_rel > 0.30)
+		{
+			sector_six_step = 3;
+		}
+		if(pot_rel > 0.45)
+		{
+			sector_six_step = 4;
+		}
+		if(pot_rel > 0.60)
+		{
+			sector_six_step = 5;
+		}
+		if(pot_rel > 0.75)
+		{
+			sector_six_step = 6;
+		}
+
+
+
+	}
+	else if(modulation == SINGLE_PHASE_DC)
+	{
+		duty_DC = pot_rel;
+	}
+}
+
+
+
+
+/**************************************************************
+* Function for current loop control
+**************************************************************/
+#pragma CODE_SECTION(current_loop_control, "ramfuncs");
+void current_loop_control(void)
+{
+
+}
+
+
+
+
+/**************************************************************
+* Function for speed loop control
+**************************************************************/
+#pragma CODE_SECTION(speed_loop_control, "ramfuncs");
+void speed_loop_control(void)
+{
+
+}
+
+
+
+
+/**************************************************************
+* Function for position loop control
+**************************************************************/
+#pragma CODE_SECTION(position_loop_control, "ramfuncs");
+void position_loop_control(void)
+{
+
+}
 
 
 
