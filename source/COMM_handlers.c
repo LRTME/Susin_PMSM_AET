@@ -27,9 +27,6 @@ bool dlog_buffers_sent = TRUE;
 #define STRING_BUFFER_LENGTH    50
 int string_buffer[STRING_BUFFER_LENGTH];
 
-// declaration of external variables
-extern float voltage;
-
 // declaration of function prototypes
 inline float get_float_from_int(int *ptr);
 void int_from_float(float number, int *ptr_to_int);
@@ -749,7 +746,7 @@ void UART_dlog_trigger(int *data)
     else
     {
         trigger = Napetost;
-        dlog.trig = &voltage;
+        dlog.trig = &cpu_load;
     }
 }
 

@@ -25,6 +25,8 @@
 #include    "PARK_float.h"
 #include    "IPARK_float.h"
 
+#include	"ABF_omega.h"
+#include	"PI_ctrl.h"
 
 
 #include    "DLOG_gen.h"
@@ -64,6 +66,11 @@ extern void get_electrical(void);
 * Function, which alignes d axis with phase 1 axis
 **************************************************************/
 extern void set_null_position(bool reset_procedure);
+
+/**************************************************************
+* Function, which checks, if voltages and currents are respecting limits
+**************************************************************/
+extern void software_protection(void);
 
 /**************************************************************
 * Function, which covers control of 3 phase PMSM

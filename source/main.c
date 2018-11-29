@@ -50,7 +50,7 @@ void main(void)
     QEP_init(4*2500L); 		// incremental encoder has 10000 pulses per revolution
     SPI_init(8, 1, 1, 0); 	// SPI_init(int bits, long clock, int clk_phase, int clk_polarity)
 
-    // enable overcurrent protection via trip zone
+    // enable hardware overcurrent protection via trip zone
     TRIP_OC_enable();
 
     // initialize periodic interrupt function
