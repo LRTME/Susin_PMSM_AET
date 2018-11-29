@@ -72,7 +72,86 @@ typedef enum {FALSE = 0, TRUE} bool;
 // vztrajnostni moment motorja [kgm^2]
 #define     J               0.004740530992912
 
+// parametri tokovnih regulatorjev
+
+/*
+
+                    TOKOVNI REGULATOR
+datum       |   parametri delujoèih regulatorjev    |     vrednost     |         komentar
+---------------------------------------------------------------------------------------------
+29.11.2018  |   P del regulatorja toka v d smeri    |      0.0311      |   I. parametriranje na 12 V
+29.11.2018  |   I del regulatorja toka v d smeri    | 26.0/SAMPLE_FREQ |   I. parametriranje na 12 V
+
+29.11.2018  |   P del regulatorja toka v q smeri    |      0.0311      |   I. parametriranje na 12 V
+29.11.2018  |   I del regulatorja toka v q smeri    | 26.0/SAMPLE_FREQ |   I. parametriranje na 12 V
+---------------------------------------------------------------------------------------------
+29.11.2018  |   P del regulatorja toka v d smeri    |      0.0156      |   I. parametriranje na 24 V
+29.11.2018  |   I del regulatorja toka v d smeri    | 13.0/SAMPLE_FREQ |   I. parametriranje na 24 V
+
+29.11.2018  |   P del regulatorja toka v q smeri    |      0.0156      |   I. parametriranje na 24 V
+29.11.2018  |   I del regulatorja toka v q smeri    | 13.0/SAMPLE_FREQ |   I. parametriranje na 24 V
+---------------------------------------------------------------------------------------------
 
 
+
+
+
+
+// parametri hitrostnih regulatorjev (s 4 razliènimi naèini merjenja hitrosti)
+
+RDIFF:
+                    HITROSTNI REGULATOR
+datum       |   parametri delujoèih regulatorjev    |  vrednost |           komentar
+---------------------------------------------------------------------------------------------
+29.11.2018  |   P del regulatorja hitrosti          |   2.00    |   DC link: 24 V, merjenje hitrosti: RDIFF velja za buffer: 201
+29.11.2018  |   I del regulatorja hitrosti          |   2e-4    |   DC link: 24 V, merjenje hitrosti: RDIFF velja za buffer: 201
+29.11.2018  |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: RDIFF velja za buffer: 201
+
+HOLOBRODKO:
+                    HITROSTNI REGULATOR
+datum       |   parametri delujoèih regulatorjev    |  vrednost |           komentar
+---------------------------------------------------------------------------------------------
+29.11.2018  |   P del regulatorja hitrosti          |   1.00    |   DC link: 24 V, merjenje hitrosti: HOLOBRODKO velja za buffer: 101 in N_vzorcev: 11
+29.11.2018  |   I del regulatorja hitrosti          |   5e-5    |   DC link: 24 V, merjenje hitrosti: HOLOBRODKO velja za buffer: 101 in N_vzorcev: 11
+29.11.2018  |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: HOLOBRODKO velja za buffer: 101 in N_vzorcev: 11
+
+                    HITROSTNI REGULATOR
+datum       |   parametri delujoèih regulatorjev    |  vrednost |           komentar
+---------------------------------------------------------------------------------------------
+29.11.2018  |   P del regulatorja hitrosti          |   1.50    |   DC link: 24 V, merjenje hitrosti: HOLOBRODKO velja za buffer: 201 in N_vzorcev: 11
+29.11.2018  |   I del regulatorja hitrosti          |   1e-4    |   DC link: 24 V, merjenje hitrosti: HOLOBRODKO velja za buffer: 201 in N_vzorcev: 11
+29.11.2018  |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: HOLOBRODKO velja za buffer: 201 in N_vzorcev: 11
+
+CAP:
+                    HITROSTNI REGULATOR
+datum       |   parametri delujoèih regulatorjev    |  vrednost |           komentar
+---------------------------------------------------------------------------------------------
+29.11.2018  |   P del regulatorja hitrosti          |   5.00    |   DC link: 24 V, merjenje hitrosti: CAP velja za prescaler: 2 in qualification: 0 - preveè "navit"
+29.11.2018  |   I del regulatorja hitrosti          |   1e-3    |   DC link: 24 V, merjenje hitrosti: CAP velja za prescaler: 2 in qualification: 0 - preveè "navit"
+29.11.2018  |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: CAP velja za prescaler: 2 in qualification: 0
+
+                    HITROSTNI REGULATOR
+datum       |   parametri delujoèih regulatorjev    |  vrednost |           komentar
+---------------------------------------------------------------------------------------------
+29.11.2018  |   P del regulatorja hitrosti          |   3.00    |   DC link: 24 V, merjenje hitrosti: CAP velja za prescaler: 2 in qualification: 0 - preveè "navit"
+29.11.2018  |   I del regulatorja hitrosti          |   5e-4    |   DC link: 24 V, merjenje hitrosti: CAP velja za prescaler: 2 in qualification: 0 - preveè "navit"
+29.11.2018  |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: CAP velja za prescaler: 2 in qualification: 0
+
+ABF:
+                    HITROSTNI REGULATOR
+datum       |   parametri delujoèih regulatorjev    |  vrednost |           komentar
+---------------------------------------------------------------------------------------------
+29.11.2018  |   P del regulatorja hitrosti          |   0.45    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 800 Hz
+29.11.2018  |   I del regulatorja hitrosti          |   5e-5    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 800 Hz
+29.11.2018  |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 800 Hz
+
+                    HITROSTNI REGULATOR
+datum       |   parametri delujoèih regulatorjev    |  vrednost |           komentar
+---------------------------------------------------------------------------------------------
+29.11.2018  |   P del regulatorja hitrosti          |   5.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+29.11.2018  |   I del regulatorja hitrosti          |   1e-3    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+29.11.2018  |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+
+*/
 
 #endif // end of __DEFINE_H__ definition

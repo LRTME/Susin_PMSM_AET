@@ -16,7 +16,7 @@ void PI_ctrl_calc(PI_ctrl *v)
     v->Err = v->Ref - v->Fdb;
     
     // proportional part
-    v->Up= v->Kp * v->Err;
+    v->Up = v->Kp * v->Err;
     
     // sum
     v->Out = v->Up + v->Ui;

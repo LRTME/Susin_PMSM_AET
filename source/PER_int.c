@@ -44,8 +44,10 @@ float	tok_i1 = 0.0;
 float	tok_i2 = 0.0;
 float	tok_i3 = 0.0;
 
-float	tok_id = 0.0;
-float	tok_iq = 0.0;
+float	tok_d_ref = 0.0;
+float	tok_q_ref = 0.0;
+float	tok_d = 0.0;
+float	tok_q = 0.0;
 
 CLARKE_float 	clarke_tok = CLARKE_FLOAT_DEFAULTS;
 PARK_float 		park_tok = PARK_FLOAT_DEFAULTS;
@@ -64,6 +66,11 @@ float	nap_v2 = 0.0;
 float	nap_v3 = 0.0;
 float	nap_dc = 0.0;
 
+float	nap_alpha_ref = 0.0;
+float	nap_beta_ref = 0.0;
+float	nap_d_ref = 0.0;
+float	nap_q_ref = 0.0;
+
 // other electrical variables
 float	pot_rel = 0.0;
 
@@ -72,8 +79,6 @@ float	pot_rel = 0.0;
 float	duty_DC = 0.0;
 float 	duty_six_step = 0.0;
 int 	sector_six_step = 1;
-float	V_alpha = 0.0;
-float	V_beta = 0.0;
 float	amp_rel = 0.0;
 float	freq = 0.0;
 float	freq_meh = 0.0;
@@ -83,8 +88,22 @@ volatile enum	CONTROL control = OPEN_LOOP;
 
 IPARK_float		ipark_nap = IPARK_FLOAT_DEFAULTS;
 
+// controllers variables
 PI_ctrl			id_reg = PI_CTRL_DEFAULTS;
 PI_ctrl			iq_reg = PI_CTRL_DEFAULTS;
+
+
+// PI regulator toka
+// upoštevano: NORMA_I = 50.0
+float   Kp_id_reg = 0.03;    	  		// Vdc = 12V: 0.031            	Vdc = 24V: 0.015
+float   Ki_id_reg = 26.0/SAMPLE_FREQ;	// Vdc = 12V: 26.0/SAMPLE_FREQ 	Vdc = 24V: 13.0/SAMPLE_FREQ
+float   Kp_iq_reg = 0.03;    			// Vdc = 12V: 0.031            	Vdc = 24V: 0.015
+float   Ki_iq_reg = 26.0/SAMPLE_FREQ;   // Vdc = 12V: 26.0/SAMPLE_FREQ 	Vdc = 24V: 13.0/SAMPLE_FREQ
+
+// PI regulator hitrosti
+float   Kp_reg_hitrosti = 2.0;  		// velja èe merimo napetost z ABF: Kp = 2.0
+float   Ki_reg_hitrosti = 1e-3;  		// velja èe merimo napetost z ABF: Ki = 1e-3
+
 
 // software limits
 float	nap_dc_max = 50.0;
@@ -92,6 +111,20 @@ float	nap_dc_min = 0.0;
 float	nap_v_max = 50.0/SQRT3;
 float	nap_v_min = -50.0/SQRT3;
 float	tok_i_max = 40.0;
+float   nap_d_ref_max = 0.577350269189626;    // per unit
+float   nap_d_ref_min = -0.577350269189626;   // per unit
+float   nap_q_ref_max = 0.577350269189626;    // per unit
+float   nap_q_ref_min = -0.577350269189626;   // per unit
+float   tok_d_ref_max = 5;    // A
+float   tok_d_ref_min = -5;   // A
+float   tok_q_ref_max = 50;   // A
+float   tok_q_ref_min = -50;  // A
+
+float   navor_ref_max = 5.89;    // Nm
+float   navor_ref_min = -5.89;   // Nm
+
+float   f_meh_ref_max = 35;  // Hz
+float   f_meh_ref_min = -35; // Hz
 
 // flags
 bool 	current_offset_calibrated_flag = FALSE;
@@ -100,7 +133,7 @@ bool	set_null_position_flag = FALSE;
 bool	reset_null_position_procedure_flag = FALSE;
 bool	control_enable_flag = FALSE;
 
-bool 	incremental_encoder_connected = FALSE;
+bool 	incremental_encoder_connected_flag = FALSE;
 
 bool 	trip_oc_flag = FALSE;
 
@@ -235,42 +268,48 @@ void interrupt PER_int(void)
     	}
     }
 
-	// switch 1 means on/off
-    if(sw1_state == FALSE)
+    // wait for current offset calibration procedure
+    if(current_offset_calibrated_flag == TRUE)
     {
-    	SVM_disable();
-    	PCB_LED2_off();
-    	set_null_position_flag = FALSE;
-    	control_enable_flag = FALSE;
-    	reset_null_position_procedure_flag = TRUE;
-    	incremental_encoder_connected = FALSE;
-    }
-    else
-    {
-    	if(set_null_position_flag == FALSE)
+    	// switch 1 means on/off
+    	if(sw1_state == FALSE)
     	{
-    		set_null_position(reset_null_position_procedure_flag);
-    		reset_null_position_procedure_flag = FALSE;
+    		SVM_disable();
+    		PCB_LED2_off();
+    		set_null_position_flag = FALSE;
+    		control_enable_flag = FALSE;
+    		reset_null_position_procedure_flag = TRUE;
+    		incremental_encoder_connected_flag = FALSE;
     	}
     	else
     	{
-    		// button 1 enables control alghorithm
-    		if(b1_press_int == TRUE && control_enable_flag == FALSE && pot_rel < 0.1)
+    		// switch 1 starts "set null position" procedure
+    		if(set_null_position_flag == FALSE)
     		{
-    			control_enable_flag = TRUE;
-    			SVM_enable();
-    			SVM_update(0.0, 0.0);
-    			PCB_LED2_on();
+    			set_null_position(reset_null_position_procedure_flag);
+    			reset_null_position_procedure_flag = FALSE;
     		}
-    		else if(b1_press_int == TRUE && control_enable_flag == TRUE)
+    		else
     		{
-    			control_enable_flag = FALSE;
-    			SVM_disable();
-    			PCB_LED2_off();
-    		}
-    	} // end of null position
-    } // end of enable switch
+    			// button 1 enables control alghorithm
+    			if(b1_press_int == TRUE && control_enable_flag == FALSE && pot_rel < 0.1)
+    			{
+    				control_enable_flag = TRUE;
+    				SVM_enable();
+    				SVM_update(0.0, 0.0);
+    				PCB_LED2_on();
+    			}
+    			else if(b1_press_int == TRUE && control_enable_flag == TRUE)
+    			{
+    				control_enable_flag = FALSE;
+    				SVM_disable();
+    				PCB_LED2_off();
+    			} // end of button 1
+    		} // end of null position
+    	} // end of switch 1
+    } // end of current_offset_calibrated
 
+    // if all the conditions are met, control alghorithm becomes active
     if(control_enable_flag == TRUE)
     {
     	control_algorithm();
@@ -559,13 +598,13 @@ void get_electrical(void)
     park_tok.Beta = clarke_tok.Beta;
     park_tok.Angle = kot_el;
     PARK_FLOAT_CALC(park_tok);
-    tok_id = park_tok.Ds;
-    tok_iq = park_tok.Qs;
+    tok_d = park_tok.Ds;
+    tok_q = park_tok.Qs;
 
 /*
     // izraèun dejanskega navora
-    navor_elektromagnetni = 3.0/2.0*POLE_PAIRS*PSI_ROT*tok_iq;
-    navor_reluktancni = 3.0/2.0*POLE_PAIRS*(Ld - Lq)*tok_id*tok_iq;
+    navor_elektromagnetni = 3.0/2.0*POLE_PAIRS*PSI_ROT*tok_q;
+    navor_reluktancni = 3.0/2.0*POLE_PAIRS*(Ld - Lq)*tok_d*tok_q;
 
     navor = navor_elektromagnetni + navor_reluktancni;
 
@@ -640,7 +679,7 @@ void set_null_position(bool reset_procedure)
         	kot_raw_temp = QEP_cnt();
         	if(kot_raw_temp - kot_raw_temp_old != 0)
         	{
-        		incremental_encoder_connected = TRUE;
+        		incremental_encoder_connected_flag = TRUE;
         	}
         }
     } // end of i == 1
@@ -780,7 +819,7 @@ void control_algorithm(void)
 	switch(modulation)
 	{
 	case SVM:
-		SVM_update(V_alpha, V_beta);
+		SVM_update(nap_alpha_ref, nap_beta_ref);
 		break;
 	case SIX_STEP:
 		SVM_update_six(duty_six_step, sector_six_step);
@@ -806,14 +845,14 @@ void open_loop_control(void)
 {
 	if(modulation == SVM)
 	{
-		if(incremental_encoder_connected == FALSE)
+		if(incremental_encoder_connected_flag == FALSE)
 		{
 			// if incremental encoder is NOT connnected
 			freq = POLE_PAIRS * freq_meh;
 			amp_rel = pot_rel;
 
-			V_alpha = amp_rel*cos(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
-			V_beta =  amp_rel*sin(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
+			nap_alpha_ref = amp_rel*cos(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
+			nap_beta_ref =  amp_rel*sin(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
 		}
 		else
 		{
@@ -824,8 +863,8 @@ void open_loop_control(void)
 
 			IPARK_FLOAT_CALC(ipark_nap);
 
-			V_alpha = ipark_nap.Alpha;
-			V_beta = ipark_nap.Beta;
+			nap_alpha_ref = ipark_nap.Alpha;
+			nap_beta_ref = ipark_nap.Beta;
 		}
 	}
 	else if(modulation == SIX_STEP)
@@ -876,54 +915,55 @@ void open_loop_control(void)
 #pragma CODE_SECTION(current_loop_control, "ramfuncs");
 void current_loop_control(void)
 {
-/*
-	// omejim želene tokove za vsak sluèaj, èe še prej nisem
-	OMEJITEV_SIGNALA (tok_id_ref, tok_id_ref_min, tok_id_ref_max);
-	OMEJITEV_SIGNALA (tok_iq_ref, tok_iq_ref_min, tok_iq_ref_max);
-
-
-	// pazim na I del regulatorja, ko med delovanjem izklopim mostiè
-	if (svm_status != ENABLE)
+	if(modulation == SVM)
 	{
-		// èe je mostiè onemogoèen, poèistim še integralne dele regulatorjev
-		id_reg.Ui = 0.0;
-		iq_reg.Ui = 0.0;
-
-	}
+		// omejim želene tokove za vsak sluèaj, èe še prej nisem
 
 
-	// tokovna PID regulacija - d os
-	id_reg.Ref = tok_id_ref;
-	id_reg.Fdb = tok_id;
-	id_reg.Kp = Kp_id_reg;
-	id_reg.Ki = Ki_id_reg;
-	id_reg.Kd = Kd_id_reg;
-	id_reg.OutMax = nap_d_ref_max;
-	id_reg.OutMin = nap_d_ref_min;
-	PID_float_calc(&id_reg);
-
-	nap_d_ref = id_reg.Out;
+		// pazim na I del regulatorja, ko med delovanjem izklopim mostiè
+		if (svm_status != ENABLE)
+		{
+			// èe je mostiè onemogoèen, poèistim še integralne dele regulatorjev
+			id_reg.Ui = 0.0;
+			iq_reg.Ui = 0.0;
+		}
 
 
-	// tokovna PID regulacija - q os
-	iq_reg.Ref = tok_iq_ref;
-	iq_reg.Fdb = tok_iq;
-	iq_reg.Kp = Kp_iq_reg;
-	iq_reg.Ki = Ki_iq_reg;
-	iq_reg.Kd = Kd_iq_reg;
-	iq_reg.OutMax = nap_q_ref_max;
-	iq_reg.OutMin = nap_q_ref_min;
-	PID_float_calc(&iq_reg);
+		// tokovna PI regulacija - d os
+		id_reg.Ref = tok_d_ref;
+		id_reg.Fdb = tok_d;
+		id_reg.Kp = Kp_id_reg;
+		id_reg.Ki = Ki_id_reg;
+		id_reg.OutMax = nap_d_ref_max;
+		id_reg.OutMin = nap_d_ref_min;
+		PI_ctrl_calc(&id_reg);
 
-	nap_q_ref = iq_reg.Out;
+		nap_d_ref = id_reg.Out;
 
-	ipark_nap.Ds = 0.0;
-	ipark_nap.Qs = pot_rel*0.577;
-	ipark_nap.Angle = kot_el;
 
-	IPARK_FLOAT_CALC(ipark_nap);
-*/
-}
+		// tokovna PI regulacija - q os
+		iq_reg.Ref = tok_q_ref;
+		iq_reg.Fdb = tok_q;
+		iq_reg.Kp = Kp_iq_reg;
+		iq_reg.Ki = Ki_iq_reg;
+		iq_reg.OutMax = nap_q_ref_max;
+		iq_reg.OutMin = nap_q_ref_min;
+		PI_ctrl_calc(&iq_reg);
+
+		nap_q_ref = iq_reg.Out;
+
+		// izracun napetosti za SVM z inverzno Parkovo transformacijo
+		ipark_nap.Ds = nap_d_ref;
+		ipark_nap.Qs = nap_q_ref;
+		ipark_nap.Angle = kot_el;
+
+		IPARK_FLOAT_CALC(ipark_nap);
+
+		nap_alpha_ref = ipark_nap.Alpha;
+		nap_beta_ref = ipark_nap.Beta;
+	} // end of if(modulation == SVM)
+
+} // end of function
 
 
 
@@ -970,9 +1010,9 @@ void PER_int_setup(void)
     dlog.trig_level = 0.5;
 
     dlog.iptr1 = &ref_gen.angle;
-    dlog.iptr2 = &cpu_temp;
-    dlog.iptr3 = &V_alpha;
-    dlog.iptr4 = &V_beta;
+    dlog.iptr2 = &tok_d_ref;
+    dlog.iptr3 = &tok_d;
+    dlog.iptr4 = &nap_d_ref;
 
     // initialize reference generator
     ref_gen.type = REF_Step;
