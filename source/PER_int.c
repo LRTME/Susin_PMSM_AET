@@ -20,9 +20,11 @@ int     interrupt_overflow_counter = 0;
 
 // mechanical variables
 int		kot_raw = 0;
+float	kot_meh_ref = 0.0;
 float	kot_meh = 0.0;
 float	kot_el = 0.0;
-float	speed_meh_Hz = 0.0;
+float	speed_meh_ref = 0.0;
+float	speed_meh = 0.0;
 float	accel_meh_Hz_per_s = 0.0;
 ABF_omega	abf_speed_meh = ABF_OMEGA_DEFAULTS;
 ABF_omega	abf_accel_meh = ABF_OMEGA_DEFAULTS;
@@ -91,7 +93,8 @@ IPARK_float		ipark_nap = IPARK_FLOAT_DEFAULTS;
 // controllers variables
 PI_ctrl			id_reg = PI_CTRL_DEFAULTS;
 PI_ctrl			iq_reg = PI_CTRL_DEFAULTS;
-
+PI_ctrl			speed_reg = PI_CTRL_DEFAULTS;
+PI_ctrl			position_reg = PI_CTRL_DEFAULTS;
 
 // PI regulator toka
 // upoštevano: NORMA_I = 50.0
@@ -101,30 +104,35 @@ float   Kp_iq_reg = 0.03;    			// Vdc = 12V: 0.031            	Vdc = 24V: 0.015
 float   Ki_iq_reg = 26.0/SAMPLE_FREQ;   // Vdc = 12V: 26.0/SAMPLE_FREQ 	Vdc = 24V: 13.0/SAMPLE_FREQ
 
 // PI regulator hitrosti
-float   Kp_reg_hitrosti = 2.0;  		// velja èe merimo napetost z ABF: Kp = 2.0
-float   Ki_reg_hitrosti = 1e-3;  		// velja èe merimo napetost z ABF: Ki = 1e-3
+float   Kp_speed_reg = 1.5;  			// velja èe merimo napetost z ABF: Kp = 1.5
+float   Ki_speed_reg = 1e-4;  			// velja èe merimo napetost z ABF: Ki = 1e-4
+
+// PI regulator pozicije
+float   Kp_position_reg = 0.0;  		// Kp = 0.0
+float   Ki_position_reg = 0.0;  		// Ki = 0.0
 
 
 // software limits
-float	nap_dc_max = 50.0;
-float	nap_dc_min = 0.0;
-float	nap_v_max = 50.0/SQRT3;
-float	nap_v_min = -50.0/SQRT3;
-float	tok_i_max = 40.0;
-float   nap_d_ref_max = 0.577350269189626;    // per unit
-float   nap_d_ref_min = -0.577350269189626;   // per unit
-float   nap_q_ref_max = 0.577350269189626;    // per unit
-float   nap_q_ref_min = -0.577350269189626;   // per unit
-float   tok_d_ref_max = 5;    // A
-float   tok_d_ref_min = -5;   // A
-float   tok_q_ref_max = 50;   // A
-float   tok_q_ref_min = -50;  // A
+float	nap_dc_max = 50.0; 						// V
+float	nap_dc_min = 0.0;						// V
+float	nap_v_max = 50.0;						// V
+float	nap_v_min = -50.0;						// V
+float	tok_i_max = 40.0;						// A
 
-float   navor_ref_max = 5.89;    // Nm
-float   navor_ref_min = -5.89;   // Nm
+float   nap_d_ref_max = 0.577350269189626; 		// per unit
+float   nap_d_ref_min = -0.577350269189626;   	// per unit
+float   nap_q_ref_max = 0.577350269189626;    	// per unit
+float   nap_q_ref_min = -0.577350269189626;   	// per unit
+float   tok_d_ref_max = 5.0;   					// A
+float   tok_d_ref_min = -5.0;  					// A
+float   tok_q_ref_max = 40.0;   				// A
+float   tok_q_ref_min = -40.0;  				// A
 
-float   f_meh_ref_max = 35;  // Hz
-float   f_meh_ref_min = -35; // Hz
+float   navor_ref_max = 5.89;    				// Nm
+float   navor_ref_min = -5.89;   				// Nm
+
+float   speed_ref_max = 40.0;  					// Hz
+float   speed_ref_min = -40.0; 					// Hz
 
 // flags
 bool 	current_offset_calibrated_flag = FALSE;
@@ -233,16 +241,10 @@ void interrupt PER_int(void)
 
     /* 3 phase inverter control alghorithm */
 
-	// B4 toggles LED4
-	if(b4_press_int == TRUE)
-	{
-		PCB_LED4_toggle();
-	}
-
-	// button 3 changes modulation scheme
+    // buttons
     if(control_enable_flag == FALSE)
     {
-    	// button 2 changes modulation mode
+    	// button 3 changes modulation mode
     	if(b3_press_int == TRUE)
     	{
     		modulation = modulation + 1;
@@ -266,6 +268,34 @@ void interrupt PER_int(void)
     	{
     		control = OPEN_LOOP;
     	}
+    }
+
+    // LEDs
+    switch(control)
+    {
+    case 0:
+    	PCB_LED3_off();
+    	PCB_LED4_off();
+    	break;
+
+    case 1:
+    	PCB_LED3_off();
+    	PCB_LED4_on();
+    	break;
+
+    case 2:
+    	PCB_LED3_on();
+    	PCB_LED4_off();
+    	break;
+
+    case 3:
+    	PCB_LED3_on();
+    	PCB_LED4_on();
+    	break;
+
+    default:
+    	PCB_LED3_off();
+    	PCB_LED4_off();
     }
 
     // wait for current offset calibration procedure
@@ -313,6 +343,14 @@ void interrupt PER_int(void)
     if(control_enable_flag == TRUE)
     {
     	control_algorithm();
+    }
+    else
+    {
+        // in standby clear all integral parts of controllers
+    	id_reg.Ui = 0.0;
+    	iq_reg.Ui = 0.0;
+    	speed_reg.Ui = 0.0;
+    	position_reg.Ui = 0.0;
     }
 
 //    temp1 = cos(2*PI*((float)interrupt_cnt/SAMPLE_FREQ));
@@ -485,7 +523,7 @@ void get_meh_speed(void)
 
 	ABF_OMEGA_CALC(abf_speed_meh);
 
-	speed_meh_Hz = abf_speed_meh.Omega;
+	speed_meh = abf_speed_meh.Omega;
 }
 
 
@@ -508,7 +546,7 @@ void get_meh_accel(void)
 
 	abf_accel_meh.Alpha = ( 2.0*PI*mejna_frekvenca_ABF/ABF_OMEGA_SAMPLING_FREQ )*( 2.0*dusenje_ABF - 2.0*PI*mejna_frekvenca_ABF/(2.0*ABF_OMEGA_SAMPLING_FREQ) );
 	abf_accel_meh.Beta = ( 2.0*PI*mejna_frekvenca_ABF/ABF_OMEGA_SAMPLING_FREQ )*( 2.0*PI*mejna_frekvenca_ABF/ABF_OMEGA_SAMPLING_FREQ );
-	abf_accel_meh.KotIn = speed_meh_Hz;
+	abf_accel_meh.KotIn = speed_meh;
 
 	ABF_OMEGA_CALC(abf_accel_meh);
 
@@ -928,6 +966,12 @@ void current_loop_control(void)
 			iq_reg.Ui = 0.0;
 		}
 
+		// samo, èe je izbran režim tokovne regulacije, definiraj referenco q toka
+		if(control == CURRENT_CONTROL)
+		{
+			tok_d_ref = 0.0;
+			tok_q_ref = pot_rel*tok_q_ref_max;
+		}
 
 		// tokovna PI regulacija - d os
 		id_reg.Ref = tok_d_ref;
@@ -944,8 +988,8 @@ void current_loop_control(void)
 		// tokovna PI regulacija - q os
 		iq_reg.Ref = tok_q_ref;
 		iq_reg.Fdb = tok_q;
-		iq_reg.Kp = Kp_iq_reg;
-		iq_reg.Ki = Ki_iq_reg;
+		iq_reg.Kp = Kp_iq_reg * nap_dc/12.0;
+		iq_reg.Ki = Ki_iq_reg * nap_dc/12.0;
 		iq_reg.OutMax = nap_q_ref_max;
 		iq_reg.OutMin = nap_q_ref_min;
 		PI_ctrl_calc(&iq_reg);
@@ -974,8 +1018,40 @@ void current_loop_control(void)
 #pragma CODE_SECTION(speed_loop_control, "ramfuncs");
 void speed_loop_control(void)
 {
+	if(modulation == SVM)
+	{
+		// omejim želeno hitrost za vsak sluèaj, èe še prej nisem
 
-}
+
+		// pazim na I del regulatorja, ko med delovanjem izklopim mostiè
+		if (svm_status != ENABLE)
+		{
+			// èe je mostiè onemogoèen, poèistim še integralne dele regulatorjev
+			speed_reg.Ui = 0.0;
+		}
+
+		// samo, èe je izbran režim hitrostne regulacije, definiraj referenco hitrosti
+		if (control == SPEED_CONTROL)
+		{
+			speed_meh_ref = pot_rel*30.0;
+		}
+			// hitrostna PI regulacija
+			speed_reg.Ref = speed_meh_ref;
+			speed_reg.Fdb = speed_meh;
+			speed_reg.Kp = Kp_speed_reg;
+			speed_reg.Ki = Ki_speed_reg;
+			speed_reg.OutMax = tok_q_ref_max;
+			speed_reg.OutMin = tok_q_ref_min;
+			PI_ctrl_calc(&speed_reg);
+
+			tok_q_ref = speed_reg.Out;
+			tok_d_ref = 0.0;
+
+			// tokovna PI regulacija
+			current_loop_control();
+
+	} // end of modulation: SVM
+} // end of speed_loop_control
 
 
 
@@ -986,8 +1062,43 @@ void speed_loop_control(void)
 #pragma CODE_SECTION(position_loop_control, "ramfuncs");
 void position_loop_control(void)
 {
+	if(modulation == SVM)
+	{
+		// omejim želene tokove za vsak sluèaj, èe še prej nisem
 
-}
+
+		// pazim na I del regulatorja, ko med delovanjem izklopim mostiè
+		if (svm_status != ENABLE)
+		{
+			// èe je mostiè onemogoèen, poèistim še integralne dele regulatorjev
+			position_reg.Ui = 0.0;
+		}
+
+		// samo, èe je izbran režim pozicijske regulacije, definiraj referenco kota
+		if (control == POSITION_CONTROL)
+		{
+			kot_meh_ref = pot_rel;
+		}
+
+		// pozicijska PI regulacija
+		position_reg.Ref = kot_meh_ref;
+		position_reg.Fdb = kot_meh;
+		position_reg.Kp = Kp_position_reg;
+		position_reg.Ki = Ki_position_reg;
+		position_reg.OutMax = tok_id_max;
+		position_reg.OutMin = speed_ref_min;
+		PI_ctrl_calc(&position_reg);
+
+		speed_meh_ref = position_reg.Out;
+
+		// hitrostna PI regulacija
+		speed_loop_control();
+
+		// tokovna PI regulacija
+		current_loop_control();
+
+	} // end of modulation: SVM
+} // end of position_loop_control
 
 
 
@@ -1003,16 +1114,16 @@ void PER_int_setup(void)
     dlog.auto_time = 1;
     dlog.holdoff_time = 1;
 
-    dlog.downsample_ratio = 1;
+    dlog.downsample_ratio = 10;
 
-    dlog.slope = Negative;
-    dlog.trig = &ref_gen.angle;
-    dlog.trig_level = 0.5;
+    dlog.slope = Positive;
+    dlog.trig = &kot_meh;
+    dlog.trig_level = 0.01;
 
-    dlog.iptr1 = &ref_gen.angle;
-    dlog.iptr2 = &tok_d_ref;
-    dlog.iptr3 = &tok_d;
-    dlog.iptr4 = &nap_d_ref;
+    dlog.iptr1 = &tok_d;
+    dlog.iptr2 = &tok_q;
+    dlog.iptr3 = &speed_meh;
+    dlog.iptr4 = &kot_meh;
 
     // initialize reference generator
     ref_gen.type = REF_Step;

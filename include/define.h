@@ -95,8 +95,6 @@ datum       |   parametri delujoèih regulatorjev    |     vrednost     |        
 
 
 
-
-
 // parametri hitrostnih regulatorjev (s 4 razliènimi naèini merjenja hitrosti)
 
 RDIFF:
@@ -148,9 +146,22 @@ datum       |   parametri delujoèih regulatorjev    |  vrednost |           kome
                     HITROSTNI REGULATOR
 datum       |   parametri delujoèih regulatorjev    |  vrednost |           komentar
 ---------------------------------------------------------------------------------------------
-29.11.2018  |   P del regulatorja hitrosti          |   5.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
-29.11.2018  |   I del regulatorja hitrosti          |   1e-3    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
-29.11.2018  |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+3.12.2018   |   P del regulatorja hitrosti          |   1.50    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+3.12.2018   |   I del regulatorja hitrosti          |   1e-4    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+3.12.2018   |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+
+
+
+
+// parametri pozicijskih regulatorjev
+                    POZICIJSKI REGULATOR
+datum       |   parametri delujoèih regulatorjev    |  vrednost |           komentar
+---------------------------------------------------------------------------------------------
+3.12.2018   |   P del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+3.12.2018   |   I del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+3.12.2018   |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+
+
 
 */
 
