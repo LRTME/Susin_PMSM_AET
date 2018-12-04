@@ -27,6 +27,7 @@
 
 #include	"ABF_omega.h"
 #include	"PI_ctrl.h"
+#include	"PID_ctrl.h"
 
 
 #include    "DLOG_gen.h"

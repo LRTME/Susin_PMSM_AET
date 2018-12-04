@@ -94,7 +94,7 @@ IPARK_float		ipark_nap = IPARK_FLOAT_DEFAULTS;
 PI_ctrl			id_reg = PI_CTRL_DEFAULTS;
 PI_ctrl			iq_reg = PI_CTRL_DEFAULTS;
 PI_ctrl			speed_reg = PI_CTRL_DEFAULTS;
-PI_ctrl			position_reg = PI_CTRL_DEFAULTS;
+PID_ctrl		position_reg = PI_CTRL_DEFAULTS;
 
 // PI regulator toka
 // upoštevano: NORMA_I = 50.0
@@ -107,10 +107,10 @@ float   Ki_iq_reg = 26.0/SAMPLE_FREQ;   // Vdc = 12V: 26.0/SAMPLE_FREQ 	Vdc = 24
 float   Kp_speed_reg = 1.5;  			// velja èe merimo napetost z ABF: Kp = 1.5
 float   Ki_speed_reg = 1e-4;  			// velja èe merimo napetost z ABF: Ki = 1e-4
 
-// PI regulator pozicije
+// PID regulator pozicije
 float   Kp_position_reg = 0.0;  		// Kp = 0.0
 float   Ki_position_reg = 0.0;  		// Ki = 0.0
-
+float   Kd_position_reg = 0.0;  		// Kd = 0.0
 
 // software limits
 float	nap_dc_max = 50.0; 						// V
@@ -1077,19 +1077,30 @@ void position_loop_control(void)
 		// samo, èe je izbran režim pozicijske regulacije, definiraj referenco kota
 		if (control == POSITION_CONTROL)
 		{
-			kot_meh_ref = pot_rel;
+			// kot_meh_ref = pot_rel;
 		}
 
 		// pozicijska PI regulacija
+		position_reg.Fdc = 100.0;							// differential filter cuttof frequency
+		position_reg.Kff = 0.0;								// differential filter cuttof frequency
+		position_reg.Sampling_period = 1.0/SAMPLE_FREQ;     // sampling period
+
 		position_reg.Ref = kot_meh_ref;
 		position_reg.Fdb = kot_meh;
 		position_reg.Kp = Kp_position_reg;
 		position_reg.Ki = Ki_position_reg;
-		position_reg.OutMax = tok_id_max;
-		position_reg.OutMin = speed_ref_min;
-		PI_ctrl_calc(&position_reg);
+		position_reg.Kd = Kd_position_reg;
+		position_reg.OutMax = tok_q_ref_max;
+		position_reg.OutMin = tok_q_ref_min;
+		PID_CTRL_CALC(position_reg);
 
 		speed_meh_ref = position_reg.Out;
+
+		if(position_reg.Out < 0.1 && position_reg.Out > -0.1)
+		{
+			speed_meh_ref = 0.0;
+			tok_q_ref = 0.0;
+		}
 
 		// hitrostna PI regulacija
 		speed_loop_control();
