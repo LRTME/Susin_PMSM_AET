@@ -34,9 +34,9 @@ void TRIP_OC_init(void)
 **************************************************************/
 void TRIP_OC_enable(void)
 {
-    SVM_MODUL1.TZSEL.bit.OSHT1 = TZ_ENABLE;      // TZ1 triggers tripzone enabled
-    SVM_MODUL2.TZSEL.bit.OSHT1 = TZ_ENABLE;      // TZ1 triggers tripzone enabled
-    SVM_MODUL3.TZSEL.bit.OSHT1 = TZ_ENABLE;      // TZ1 triggers tripzone enabled
+    SVM_MODUL1.TZSEL.bit.OSHT1 = TZ_ENABLE;    		// TZ1 triggers tripzone enabled
+    SVM_MODUL2.TZSEL.bit.OSHT1 = TZ_ENABLE;      	// TZ1 triggers tripzone enabled
+    SVM_MODUL3.TZSEL.bit.OSHT1 = TZ_ENABLE;      	// TZ1 triggers tripzone enabled
 }
 
 /**************************************************************
@@ -45,8 +45,27 @@ void TRIP_OC_enable(void)
 **************************************************************/
 void TRIP_OC_disable(void)
 {
-    SVM_MODUL1.TZSEL.bit.OSHT1 = TZ_DISABLE;      // TZ1 triggers tripzone enabled
-    SVM_MODUL2.TZSEL.bit.OSHT1 = TZ_DISABLE;      // TZ1 triggers tripzone enabled
-    SVM_MODUL3.TZSEL.bit.OSHT1 = TZ_DISABLE;      // TZ1 triggers tripzone enabled
+    SVM_MODUL1.TZSEL.bit.OSHT1 = TZ_DISABLE;      	// TZ1 triggers tripzone enabled
+    SVM_MODUL2.TZSEL.bit.OSHT1 = TZ_DISABLE;      	// TZ1 triggers tripzone enabled
+    SVM_MODUL3.TZSEL.bit.OSHT1 = TZ_DISABLE;      	// TZ1 triggers tripzone enabled
+}
+
+/**************************************************************
+* Clear TRIP zone modul flags for SVM (PWM modul security latch)
+* returns: void
+**************************************************************/
+void TRIP_OC_reset(void)
+{
+	EALLOW;
+
+	SVM_MODUL1.TZOSTCLR.bit.OST1 = 1;      		// one-shot trip flag is cleared for this EPwmReg
+	SVM_MODUL2.TZOSTCLR.bit.OST1 = 1;      		// one-shot  trip flag is cleared for this EPwmReg
+	SVM_MODUL3.TZOSTCLR.bit.OST1 = 1;      		// one-shot  trip flag is cleared for this EPwmReg
+
+	SVM_MODUL1.TZCLR.bit.OST = 1;      			// general trip flag is cleared for this EPwmReg
+	SVM_MODUL2.TZCLR.bit.OST = 1;      			// general trip flag is cleared for this EPwmReg
+	SVM_MODUL3.TZCLR.bit.OST = 1;      			// general trip flag is cleared for this EPwmReg
+
+    EDIS;
 }
 

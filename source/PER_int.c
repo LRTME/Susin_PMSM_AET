@@ -81,7 +81,7 @@ float	pot_rel_discrete_old = 0.0;
 /* control algorithm variables */
 // general variables
 float	duty_DC = 0.0;
-float 	duty_six_step = 0.1;
+float 	duty_six_step = 0.0;
 int 	sector_six_step = 1;
 float	amp_rel = 0.0;
 float	freq = 0.0;
@@ -114,9 +114,9 @@ float   Kp_speed_reg = 3.0;  			// velja èe merimo napetost z ABF: Kp = 3.0
 float   Ki_speed_reg = 5e-4;  			// velja èe merimo napetost z ABF: Ki = 5e-4
 
 // PID regulator pozicije
-float   Kp_position_reg = 0.0;  		// Kp = 0.0
-float   Ki_position_reg = 0.0;  		// Ki = 0.0
-float   Kd_position_reg = 0.0;  		// Kd = 0.0
+float   Kp_position_reg = 200.0;  		// velja, èe ni hitrostne zanke Kp = 200.0
+float   Ki_position_reg = 0.0;  		// velja, èe ni hitrostne zanke Ki = 0.0
+float   Kd_position_reg = 10.0;  		// velja, èe ni hitrostne zanke Kd = 10.0
 
 // software limits
 float	nap_dc_max = 50.0; 						// V
@@ -137,8 +137,8 @@ float   tok_q_ref_min = -44.0;  				// A
 float   navor_ref_max = 5.89;    				// Nm
 float   navor_ref_min = -5.89;   				// Nm
 
-float   speed_ref_max = 40.0;  					// Hz
-float   speed_ref_min = -40.0; 					// Hz
+float   speed_ref_max = 30.0;  					// Hz
+float   speed_ref_min = -30.0; 					// Hz
 
 // flags
 bool 	current_offset_calibrated_flag = FALSE;
@@ -152,8 +152,9 @@ bool	control_enable_flag = FALSE;
 bool 	incremental_encoder_connected_flag = FALSE;
 
 bool 	hardware_trip_oc_flag = FALSE;
-
 bool	software_trip_flag = FALSE;
+bool	trip_reset_flag = FALSE;
+
 bool	nap_dc_overvoltage_flag = FALSE;
 bool	nap_dc_undervoltage_flag = FALSE;
 bool	nap_v1_overvoltage_flag = FALSE;
@@ -192,6 +193,7 @@ void	open_loop_control(void);
 void	current_loop_control(void);
 void	speed_loop_control(void);
 void	position_loop_control(void);
+void	trip_reset(void);
 
 /**************************************************************
 * interrupt funcion
@@ -456,6 +458,11 @@ void interrupt PER_int(void)
     		control_enable_flag = FALSE;
     		reset_null_position_procedure_flag = TRUE;
     		incremental_encoder_connected_flag = FALSE;
+
+    		if(hardware_trip_oc_flag == TRUE || software_trip_flag == TRUE)
+    		{
+    			trip_reset_flag = TRUE;
+    		}
     	}
     	else
     	{
@@ -509,6 +516,19 @@ void interrupt PER_int(void)
     	tok_q_ref = 0.0;
     	speed_meh_ref = 0.0;
     	kot_meh_ref = 0.0;
+
+    	// clear all open loop values
+    	amp_rel = 0.0;
+    	freq_meh = 0.0;
+    	duty_six_step = 0.0;
+    	duty_DC = 0.0;
+    }
+
+
+    if(trip_reset_flag == TRUE)
+    {
+    	trip_reset();
+    	trip_reset_flag = FALSE;
     }
 
 
@@ -1053,10 +1073,30 @@ void open_loop_control(void)
 		if(incremental_encoder_connected_flag == FALSE)
 		{
 			// if incremental encoder is NOT connnected
-			amp_rel = direction*pot_rel * 12.0/nap_dc; // z napetostjo DC linka se spreminja
-			amp_rel = amp_rel/1.2; // polna napetost je prevelika za hitrost vrtenja do 5 Hz
 
-			freq_meh = pot_rel*5.0;
+			// potenciometer is changing duty cycle
+			amp_rel = direction*pot_rel;
+
+			// button 3 and 4 are changing mechanical freqency
+			if(b3_press_int == TRUE)
+			{
+				freq_meh = freq_meh - 0.5;
+			}
+			else if(b4_press_int == TRUE)
+			{
+				freq_meh = freq_meh + 0.5;
+			}
+
+			// omejitev na [0,speed_ref_max]
+			if(freq_meh > speed_ref_max)
+			{
+				freq_meh = speed_ref_max;
+			}
+			else if(freq_meh < 0.0)
+			{
+				freq_meh = 0.0;
+			}
+
 			freq = POLE_PAIRS * freq_meh;
 
 			nap_alpha_ref = amp_rel*cos(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
@@ -1077,9 +1117,27 @@ void open_loop_control(void)
 	}
 	else if(modulation == SIX_STEP)
 	{
-		// duty_six_step = pot_rel * 12.0/nap_dc;
-		// sector_six_step = 1;
+		// button 3 and 4 are changing duty cycle
+		if(b3_press_int == TRUE)
+		{
+			duty_six_step = duty_six_step - 0.01;
+		}
+		else if(b4_press_int == TRUE)
+		{
+			duty_six_step = duty_six_step + 0.01;
+		}
 
+		// omejitev na [0,1]
+		if(duty_six_step > 1.0)
+		{
+			duty_six_step = 1.0;
+		}
+		else if(duty_six_step < 0.0)
+		{
+			duty_six_step = 0.0;
+		}
+
+		// doloèanje smeri s potenciometrom
 		if(direction >= 0)
 		{
 			if(pot_rel > 0.0)
@@ -1106,10 +1164,6 @@ void open_loop_control(void)
 			{
 				sector_six_step = 6;
 			}
-		}
-		else
-		{
-			duty_six_step = pot_rel * 12.0/nap_dc;
 		}
 	}
 	else if(modulation == SINGLE_PHASE_DC)
@@ -1213,7 +1267,7 @@ void speed_loop_control(void)
 		// samo, èe je izbran režim hitrostne regulacije, definiraj referenco hitrosti
 		if (control == SPEED_CONTROL)
 		{
-			speed_meh_ref = direction*pot_rel*30.0;
+			speed_meh_ref = direction*pot_rel*speed_ref_max;
 		}
 			// hitrostna PI regulacija
 			speed_reg.Ref = speed_meh_ref;
@@ -1301,6 +1355,46 @@ void position_loop_control(void)
 	}
 
 } // end of position_loop_control
+
+
+
+
+/**************************************************************
+* Function, which resets control alghorithm after trip
+**************************************************************/
+void trip_reset(void)
+{
+	TRIP_OC_reset();
+	SVM_disable();
+
+	current_offset_calibrated_flag = TRUE;
+
+	control_enable_flag = FALSE;
+
+	set_null_position_flag = FALSE;
+	reset_null_position_procedure_flag = TRUE;
+	incremental_encoder_connected_flag = FALSE;
+
+	hardware_trip_oc_flag = FALSE;
+	software_trip_flag = FALSE;
+
+	nap_dc_overvoltage_flag = FALSE;
+	nap_dc_undervoltage_flag = FALSE;
+	nap_v1_overvoltage_flag = FALSE;
+	nap_v1_undervoltage_flag = FALSE;
+	nap_v2_overvoltage_flag = FALSE;
+	nap_v2_undervoltage_flag = FALSE;
+	nap_v3_overvoltage_flag = FALSE;
+	nap_v3_undervoltage_flag = FALSE;
+	tok_i1_overcurrent_flag = FALSE;
+	tok_i2_overcurrent_flag = FALSE;
+	tok_i3_overcurrent_flag = FALSE;
+
+	PCB_LED1_off();
+	PCB_LED2_off();
+	PCB_LED3_off();
+	PCB_LED4_off();
+}
 
 
 

@@ -33,6 +33,8 @@
 #include    "DLOG_gen.h"
 #include    "REF_gen.h"
 
+#include    "TRIP_overcurrent.h"
+
 /**************************************************************
 * Function which initializes all required for execution of
 * interrupt function
@@ -97,5 +99,10 @@ extern void speed_loop_control(void);
 * Function for position loop control
 **************************************************************/
 extern void position_loop_control(void);
+
+/**************************************************************
+* Function, which resets control alghorithm after trip
+**************************************************************/
+extern void trip_reset(void);
 
 #endif // end of __PER_INT_H__ definition

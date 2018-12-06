@@ -27,5 +27,10 @@ extern void TRIP_OC_enable(void);
 **************************************************************/
 extern void TRIP_OC_disable(void);
 
+/**************************************************************
+* Clear TRIP zone modul flags for SVM (PWM modul security latch)
+* returns: void
+**************************************************************/
+extern void TRIP_OC_reset(void);
 
 #endif /* INCLUDE_TRIP_OVERCURRENT_H_ */
