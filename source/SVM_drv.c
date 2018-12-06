@@ -414,7 +414,7 @@ void SVM_update_six(float duty, int sektor)
     // delam samo, ce je mostic omogocen
     if (svm_status == ENABLE)
     {
-        // zasšita
+        // zašèita
         if (duty < 0.0) duty = 0.0;
         if (duty > 1.0) duty = 1.0;
 

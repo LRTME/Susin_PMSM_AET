@@ -75,15 +75,21 @@ float	nap_q_ref = 0.0;
 
 // other electrical variables
 float	pot_rel = 0.0;
+float	pot_rel_discrete = 0.0;
+float	pot_rel_discrete_old = 0.0;
 
 /* control algorithm variables */
 // general variables
 float	duty_DC = 0.0;
-float 	duty_six_step = 0.0;
+float 	duty_six_step = 0.1;
 int 	sector_six_step = 1;
 float	amp_rel = 0.0;
 float	freq = 0.0;
 float	freq_meh = 0.0;
+
+int		direction = 1;
+long	tic_direction = 0;
+long	delta_tic_direction = 0;
 
 volatile enum	MODULATION modulation = SVM;
 volatile enum	CONTROL control = OPEN_LOOP;
@@ -98,26 +104,26 @@ PID_ctrl		position_reg = PI_CTRL_DEFAULTS;
 
 // PI regulator toka
 // upoštevano: NORMA_I = 50.0
-float   Kp_id_reg = 0.03;    	  		// Vdc = 12V: 0.031            	Vdc = 24V: 0.015
+float   Kp_id_reg = 0.03;    	  		// Vdc = 12V: 0.03            	Vdc = 24V: 0.015
 float   Ki_id_reg = 26.0/SAMPLE_FREQ;	// Vdc = 12V: 26.0/SAMPLE_FREQ 	Vdc = 24V: 13.0/SAMPLE_FREQ
-float   Kp_iq_reg = 0.03;    			// Vdc = 12V: 0.031            	Vdc = 24V: 0.015
+float   Kp_iq_reg = 0.03;    			// Vdc = 12V: 0.03            	Vdc = 24V: 0.015
 float   Ki_iq_reg = 26.0/SAMPLE_FREQ;   // Vdc = 12V: 26.0/SAMPLE_FREQ 	Vdc = 24V: 13.0/SAMPLE_FREQ
 
 // PI regulator hitrosti
-float   Kp_speed_reg = 1.5;  			// velja èe merimo napetost z ABF: Kp = 1.5
-float   Ki_speed_reg = 1e-4;  			// velja èe merimo napetost z ABF: Ki = 1e-4
+float   Kp_speed_reg = 3.0;  			// velja èe merimo napetost z ABF: Kp = 3.0
+float   Ki_speed_reg = 5e-4;  			// velja èe merimo napetost z ABF: Ki = 5e-4
 
 // PID regulator pozicije
-float   Kp_position_reg = 0.0;  		// Kp = 0.0
+float   Kp_position_reg = 50.0;  		// Kp = 0.0
 float   Ki_position_reg = 0.0;  		// Ki = 0.0
-float   Kd_position_reg = 0.0;  		// Kd = 0.0
+float   Kd_position_reg = 1e-3;  		// Kd = 0.0
 
 // software limits
 float	nap_dc_max = 50.0; 						// V
 float	nap_dc_min = 0.0;						// V
 float	nap_v_max = 50.0;						// V
 float	nap_v_min = -50.0;						// V
-float	tok_i_max = 40.0;						// A
+float	tok_i_max = 45.0;						// A
 
 float   nap_d_ref_max = 0.577350269189626; 		// per unit
 float   nap_d_ref_min = -0.577350269189626;   	// per unit
@@ -125,8 +131,8 @@ float   nap_q_ref_max = 0.577350269189626;    	// per unit
 float   nap_q_ref_min = -0.577350269189626;   	// per unit
 float   tok_d_ref_max = 5.0;   					// A
 float   tok_d_ref_min = -5.0;  					// A
-float   tok_q_ref_max = 40.0;   				// A
-float   tok_q_ref_min = -40.0;  				// A
+float   tok_q_ref_max = 44.0;   				// A
+float   tok_q_ref_min = -44.0;  				// A
 
 float   navor_ref_max = 5.89;    				// Nm
 float   navor_ref_min = -5.89;   				// Nm
@@ -137,13 +143,15 @@ float   speed_ref_min = -40.0; 					// Hz
 // flags
 bool 	current_offset_calibrated_flag = FALSE;
 
+bool	direction_change_flag = FALSE;
+
 bool	set_null_position_flag = FALSE;
 bool	reset_null_position_procedure_flag = FALSE;
 bool	control_enable_flag = FALSE;
 
 bool 	incremental_encoder_connected_flag = FALSE;
 
-bool 	trip_oc_flag = FALSE;
+bool 	hardware_trip_oc_flag = FALSE;
 
 bool	software_trip_flag = FALSE;
 bool	nap_dc_overvoltage_flag = FALSE;
@@ -241,9 +249,28 @@ void interrupt PER_int(void)
 
     /* 3 phase inverter control alghorithm */
 
+
+
+
     // buttons
     if(control_enable_flag == FALSE)
     {
+    	// button 2 changes direction of rotation
+    	if(b2_press_int == TRUE)
+    	{
+    		direction = -direction;
+    		if(direction >= 0)
+    		{
+    			direction = 1;
+    		}
+    		else
+    		{
+    			direction = -1;
+    		}
+
+    		direction_change_flag = TRUE;
+        	tic_direction = interrupt_cnt;
+    	}
     	// button 3 changes modulation mode
     	if(b3_press_int == TRUE)
     	{
@@ -269,6 +296,7 @@ void interrupt PER_int(void)
     		control = OPEN_LOOP;
     	}
     }
+
 
     // LEDs
     switch(control)
@@ -298,6 +326,124 @@ void interrupt PER_int(void)
     	PCB_LED4_off();
     }
 
+	// signalize direction change with LED3 and LED4
+    if(control_enable_flag == FALSE)
+    {
+    	if(direction_change_flag == TRUE)
+    	{
+    		// najprej ugasni obe LED
+    		PCB_LED3_off();
+    		PCB_LED4_off();
+
+    		delta_tic_direction = interrupt_cnt - tic_direction;
+    		if(interrupt_cnt < tic_direction)
+    		{
+    			delta_tic_direction = delta_tic_direction + SAMPLE_FREQ;
+    		}
+
+    		if(direction >= 0)
+    		{
+    			// za pozitivno smer najprej prižgi LED4
+    			if(delta_tic_direction >= (long)(1*SAMPLE_FREQ/10))
+    			{
+
+    				PCB_LED3_off();
+    				PCB_LED4_on();
+    			}
+
+    			// preklopi LED4
+    			if(delta_tic_direction >= (long)(2*SAMPLE_FREQ/10))
+    			{
+    				PCB_LED4_toggle();
+    			}
+
+    			// preklopi LED4
+    			if(delta_tic_direction >= (long)(3*SAMPLE_FREQ/10))
+    			{
+    				PCB_LED4_toggle();
+    			}
+
+    			// preklopi LED4
+    			if(delta_tic_direction >= (long)(4*SAMPLE_FREQ/10))
+    			{
+    				PCB_LED4_toggle();
+    			}
+
+    			// preklopi LED4
+    			if(delta_tic_direction >= (long)(5*SAMPLE_FREQ/10))
+    			{
+    				PCB_LED4_toggle();
+    			}
+
+    			// preklopi obe LED
+    			if(delta_tic_direction >= (long)(6*SAMPLE_FREQ/10))
+    			{
+    				PCB_LED3_off();
+    				PCB_LED4_off();
+    			}
+    		}
+    		else
+    		{
+    			// za negativno smer najprej prižgi LED3
+    			if(delta_tic_direction >= (long)(1*SAMPLE_FREQ/10))
+    			{
+
+    				PCB_LED3_on();
+    				PCB_LED4_off();
+    			}
+
+    			// preklopi LED3
+    			if(delta_tic_direction >= (long)(2*SAMPLE_FREQ/10))
+    			{
+    				PCB_LED3_toggle();
+    			}
+
+    			// preklopi LED3
+    			if(delta_tic_direction >= (long)(3*SAMPLE_FREQ/10))
+    			{
+    				PCB_LED3_toggle();
+    			}
+
+    			// preklopi LED3
+    			if(delta_tic_direction >= (long)(4*SAMPLE_FREQ/10))
+    			{
+    				PCB_LED3_toggle();
+    			}
+
+    			// preklopi LED3
+    			if(delta_tic_direction >= (long)(5*SAMPLE_FREQ/10))
+    			{
+    				PCB_LED3_toggle();
+    			}
+
+    			// preklopi obe LED
+    			if(delta_tic_direction >= (long)(6*SAMPLE_FREQ/10))
+    			{
+    				PCB_LED3_off();
+    				PCB_LED4_off();
+    			}
+    		}
+
+    		if(delta_tic_direction >= (long)(9.9*SAMPLE_FREQ/10))
+    		{
+    			// ne vplivaj veè na LED
+    			direction_change_flag = FALSE;
+    			delta_tic_direction = 0;
+    		}
+    	}
+    }
+    else
+    {
+    	// èe je algoritem vodenja že aktiven, ne rabiš veè signalizirati smeri vrtenja
+
+		// ne vplivaj veè na LED
+		direction_change_flag = FALSE;
+		delta_tic_direction = 0;
+    }
+
+
+    // main conditions for control
+
     // wait for current offset calibration procedure
     if(current_offset_calibrated_flag == TRUE)
     {
@@ -318,11 +464,12 @@ void interrupt PER_int(void)
     		{
     			set_null_position(reset_null_position_procedure_flag);
     			reset_null_position_procedure_flag = FALSE;
+    			modulation = SVM;
     		}
     		else
     		{
     			// button 1 enables control alghorithm
-    			if(b1_press_int == TRUE && control_enable_flag == FALSE && pot_rel < 0.1)
+    			if(b1_press_int == TRUE && control_enable_flag == FALSE && pot_rel <= 0.5)
     			{
     				control_enable_flag = TRUE;
     				SVM_enable();
@@ -331,13 +478,14 @@ void interrupt PER_int(void)
     			}
     			else if(b1_press_int == TRUE && control_enable_flag == TRUE)
     			{
-    				control_enable_flag = FALSE;
     				SVM_disable();
+    				control_enable_flag = FALSE;
     				PCB_LED2_off();
     			} // end of button 1
     		} // end of null position
     	} // end of switch 1
     } // end of current_offset_calibrated
+
 
     // if all the conditions are met, control alghorithm becomes active
     if(control_enable_flag == TRUE)
@@ -351,7 +499,18 @@ void interrupt PER_int(void)
     	iq_reg.Ui = 0.0;
     	speed_reg.Ui = 0.0;
     	position_reg.Ui = 0.0;
+
+    	// clear all reference values
+    	nap_alpha_ref = 0.0;
+    	nap_beta_ref = 0.0;
+    	nap_d_ref = 0.0;
+    	nap_q_ref = 0.0;
+    	tok_d_ref = 0.0;
+    	tok_q_ref = 0.0;
+    	speed_meh_ref = 0.0;
+    	kot_meh_ref = 0.0;
     }
+
 
 //    temp1 = cos(2*PI*((float)interrupt_cnt/SAMPLE_FREQ));
 //    temp2 = sin(2*PI*((float)interrupt_cnt/SAMPLE_FREQ));
@@ -375,10 +534,10 @@ void interrupt PER_int(void)
      */
     if(PCB_TRIP_OC_read() == TRUE || SVM_MODUL1.TZSEL.bit.OSHT1)
     {
-    	trip_oc_flag = TRUE;
+    	hardware_trip_oc_flag = TRUE;
     }
 
-    if(trip_oc_flag == TRUE)
+    if(hardware_trip_oc_flag == TRUE)
     {
     	SVM_trip();
     	PCB_LED1_on();
@@ -597,6 +756,7 @@ void get_electrical(void)
         tok_i3 = tok_i_gain * (ADC_CURRENT_3 - tok_i3_raw_offset);
     }
 
+
     // napetosti 1,2,3
     nap_v1 = nap_v_gain * (ADC_VOLTAGE_1 - nap_v1_offset);
     nap_v2 = nap_v_gain * (ADC_VOLTAGE_2 - nap_v2_offset);
@@ -605,26 +765,31 @@ void get_electrical(void)
     // napetost DC linka
     nap_dc = nap_dc_gain * (ADC_VOLTAGE_DC - nap_dc_offset);
 
+
     // pot_rel
     pot_rel = ADC_POT * (1/4096.0);
     // okoli nicle vrzem zeleno vrednost na cisto niclo
-    if ((pot_rel > 0.0) && (pot_rel < +0.05))
+    if ((pot_rel > 0.0) && (pot_rel < +0.01))
     {
         pot_rel = 0.0;
     }
-/*    if (pot_rel > +0.05)
+
+    // na potenciometer dodaj se histerezo - manj suma
+    // najprej zaokrozim na +-0.01
+    pot_rel_discrete = (long)(pot_rel * 100.0);
+
+    // dodaj histerezo
+    if (fabs(pot_rel_discrete_old - pot_rel_discrete) < 1)
     {
-        pot_rel = pot_rel - 0.05;
+    	pot_rel_discrete = pot_rel_discrete_old;
     }
-    if ((pot_rel < 0.0) && (pot_rel > -0.05))
-    {
-        pot_rel = 0.0;
-    }
-    if (pot_rel < -0.05)
-    {
-        pot_rel = pot_rel + 0.05;
-    }
-*/
+    // zgodovina
+    // pot_rel_discrete_old = 2*(long)(pot_rel_discrete / 2.0);
+    // spravi dol na obmoèje [0,1]
+    pot_rel_discrete = pot_rel_discrete / 100.0;
+    // zgodovina
+    pot_rel_discrete_old = pot_rel_discrete;
+
 
     // Clarke-ina transformacija tokov
     clarke_tok.As = tok_i1;
@@ -663,7 +828,7 @@ void set_null_position(bool reset_procedure)
 	/* Vnaprej vem, da moram v kratkem stiku na posamezno
 	 * fazo PMSM-ja pritisniti 2V, da se bo zavrtel v pravo lego.
 	 */
-    float 	duty_cycle = 2.0/nap_dc;
+    float 	duty_cycle = 0.2 * 12.0/nap_dc; // z napetostjo DC linka se spreminja
     int 	sector;
 
     static int	i = 0;
@@ -850,6 +1015,7 @@ void control_algorithm(void)
 		break;
 	default:
 		SVM_disable();
+		control_enable_flag = FALSE;
 		PCB_LED2_off();
 		break;
 	}
@@ -867,6 +1033,7 @@ void control_algorithm(void)
 		break;
 	default:
 		SVM_disable();
+		control_enable_flag = FALSE;
 		PCB_LED2_off();
 		break;
 	}
@@ -886,8 +1053,11 @@ void open_loop_control(void)
 		if(incremental_encoder_connected_flag == FALSE)
 		{
 			// if incremental encoder is NOT connnected
+			amp_rel = direction*pot_rel * 12.0/nap_dc; // z napetostjo DC linka se spreminja
+			amp_rel = amp_rel/1.2; // polna napetost je prevelika za hitrost vrtenja do 5 Hz
+
+			freq_meh = pot_rel*5.0;
 			freq = POLE_PAIRS * freq_meh;
-			amp_rel = pot_rel;
 
 			nap_alpha_ref = amp_rel*cos(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
 			nap_beta_ref =  amp_rel*sin(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
@@ -896,7 +1066,7 @@ void open_loop_control(void)
 		{
 			// if incremental encoder is connnected
 			ipark_nap.Ds = 0.0;
-			ipark_nap.Qs = pot_rel*0.577;
+			ipark_nap.Qs = direction*pot_rel*0.577;
 			ipark_nap.Angle = kot_el;
 
 			IPARK_FLOAT_CALC(ipark_nap);
@@ -907,40 +1077,44 @@ void open_loop_control(void)
 	}
 	else if(modulation == SIX_STEP)
 	{
-		// duty_six_step = 0.1;
+		// duty_six_step = pot_rel * 12.0/nap_dc;
 		// sector_six_step = 1;
 
-		if(pot_rel > 0.0)
+		if(direction >= 0)
 		{
-			sector_six_step = 1;
+			if(pot_rel > 0.0)
+			{
+				sector_six_step = 1;
+			}
+			if(pot_rel > 0.15)
+			{
+				sector_six_step = 2;
+			}
+			if(pot_rel > 0.30)
+			{
+				sector_six_step = 3;
+			}
+			if(pot_rel > 0.45)
+			{
+				sector_six_step = 4;
+			}
+			if(pot_rel > 0.60)
+			{
+				sector_six_step = 5;
+			}
+			if(pot_rel > 0.75)
+			{
+				sector_six_step = 6;
+			}
 		}
-		if(pot_rel > 0.15)
+		else
 		{
-			sector_six_step = 2;
+			duty_six_step = pot_rel * 12.0/nap_dc;
 		}
-		if(pot_rel > 0.30)
-		{
-			sector_six_step = 3;
-		}
-		if(pot_rel > 0.45)
-		{
-			sector_six_step = 4;
-		}
-		if(pot_rel > 0.60)
-		{
-			sector_six_step = 5;
-		}
-		if(pot_rel > 0.75)
-		{
-			sector_six_step = 6;
-		}
-
-
-
 	}
 	else if(modulation == SINGLE_PHASE_DC)
 	{
-		duty_DC = pot_rel;
+		duty_DC = direction*pot_rel;
 	}
 }
 
@@ -953,7 +1127,7 @@ void open_loop_control(void)
 #pragma CODE_SECTION(current_loop_control, "ramfuncs");
 void current_loop_control(void)
 {
-	if(modulation == SVM)
+	if(modulation == SVM && incremental_encoder_connected_flag == TRUE)
 	{
 		// omejim želene tokove za vsak sluèaj, èe še prej nisem
 
@@ -970,14 +1144,14 @@ void current_loop_control(void)
 		if(control == CURRENT_CONTROL)
 		{
 			tok_d_ref = 0.0;
-			tok_q_ref = pot_rel*tok_q_ref_max;
+			tok_q_ref = direction*pot_rel*tok_q_ref_max;
 		}
 
 		// tokovna PI regulacija - d os
 		id_reg.Ref = tok_d_ref;
 		id_reg.Fdb = tok_d;
-		id_reg.Kp = Kp_id_reg;
-		id_reg.Ki = Ki_id_reg;
+		id_reg.Kp = Kp_id_reg * 12.0/nap_dc; // z napetostjo DC linka se spreminja
+		id_reg.Ki = Ki_id_reg * 12.0/nap_dc; // z napetostjo DC linka se spreminja
 		id_reg.OutMax = nap_d_ref_max;
 		id_reg.OutMin = nap_d_ref_min;
 		PI_ctrl_calc(&id_reg);
@@ -988,8 +1162,8 @@ void current_loop_control(void)
 		// tokovna PI regulacija - q os
 		iq_reg.Ref = tok_q_ref;
 		iq_reg.Fdb = tok_q;
-		iq_reg.Kp = Kp_iq_reg * nap_dc/12.0;
-		iq_reg.Ki = Ki_iq_reg * nap_dc/12.0;
+		iq_reg.Kp = Kp_iq_reg * 12.0/nap_dc; // z napetostjo DC linka se spreminja
+		iq_reg.Ki = Ki_iq_reg * 12.0/nap_dc; // z napetostjo DC linka se spreminja
 		iq_reg.OutMax = nap_q_ref_max;
 		iq_reg.OutMin = nap_q_ref_min;
 		PI_ctrl_calc(&iq_reg);
@@ -1006,6 +1180,12 @@ void current_loop_control(void)
 		nap_alpha_ref = ipark_nap.Alpha;
 		nap_beta_ref = ipark_nap.Beta;
 	} // end of if(modulation == SVM)
+	else
+	{
+		SVM_disable();
+		control_enable_flag = FALSE;
+		PCB_LED2_off();
+	}
 
 } // end of function
 
@@ -1018,7 +1198,7 @@ void current_loop_control(void)
 #pragma CODE_SECTION(speed_loop_control, "ramfuncs");
 void speed_loop_control(void)
 {
-	if(modulation == SVM)
+	if(modulation == SVM && incremental_encoder_connected_flag == TRUE)
 	{
 		// omejim želeno hitrost za vsak sluèaj, èe še prej nisem
 
@@ -1033,7 +1213,7 @@ void speed_loop_control(void)
 		// samo, èe je izbran režim hitrostne regulacije, definiraj referenco hitrosti
 		if (control == SPEED_CONTROL)
 		{
-			speed_meh_ref = pot_rel*30.0;
+			speed_meh_ref = direction*pot_rel*30.0;
 		}
 			// hitrostna PI regulacija
 			speed_reg.Ref = speed_meh_ref;
@@ -1045,12 +1225,17 @@ void speed_loop_control(void)
 			PI_ctrl_calc(&speed_reg);
 
 			tok_q_ref = speed_reg.Out;
-			tok_d_ref = 0.0;
 
 			// tokovna PI regulacija
 			current_loop_control();
 
 	} // end of modulation: SVM
+	else
+	{
+		SVM_disable();
+		PCB_LED2_off();
+	}
+
 } // end of speed_loop_control
 
 
@@ -1062,7 +1247,7 @@ void speed_loop_control(void)
 #pragma CODE_SECTION(position_loop_control, "ramfuncs");
 void position_loop_control(void)
 {
-	if(modulation == SVM)
+	if(modulation == SVM && incremental_encoder_connected_flag == TRUE)
 	{
 		// omejim želene tokove za vsak sluèaj, èe še prej nisem
 
@@ -1077,16 +1262,26 @@ void position_loop_control(void)
 		// samo, èe je izbran režim pozicijske regulacije, definiraj referenco kota
 		if (control == POSITION_CONTROL)
 		{
-			// kot_meh_ref = pot_rel;
+			kot_meh_ref = pot_rel_discrete;
 		}
 
-		// pozicijska PI regulacija
-		position_reg.Fdc = 100.0;							// differential filter cuttof frequency
-		position_reg.Kff = 0.0;								// differential filter cuttof frequency
+		// pozicijska PID regulacija
+		position_reg.Fdc = 1000.0;							// differential filter cuttof frequency
+		position_reg.Kff = 0.0;								// Parameter: Feedforward gain
 		position_reg.Sampling_period = 1.0/SAMPLE_FREQ;     // sampling period
 
+		// korigiraj mejni primer, ko gre kot nad 1.0 in pod 0.0
+		if(kot_meh_ref - abf_speed_meh.KotOut > 0.5)
+		{
+			kot_meh_ref = kot_meh_ref - 1.0;
+		}
+		else if(kot_meh_ref - abf_speed_meh.KotOut < -0.5)
+		{
+			kot_meh_ref = kot_meh_ref + 1.0;
+		}
+
 		position_reg.Ref = kot_meh_ref;
-		position_reg.Fdb = kot_meh;
+		position_reg.Fdb = abf_speed_meh.KotOut;
 		position_reg.Kp = Kp_position_reg;
 		position_reg.Ki = Ki_position_reg;
 		position_reg.Kd = Kd_position_reg;
@@ -1094,21 +1289,21 @@ void position_loop_control(void)
 		position_reg.OutMin = tok_q_ref_min;
 		PID_CTRL_CALC(position_reg);
 
-		speed_meh_ref = position_reg.Out;
-
-		if(position_reg.Out < 0.1 && position_reg.Out > -0.1)
-		{
-			speed_meh_ref = 0.0;
-			tok_q_ref = 0.0;
-		}
+ 		speed_meh_ref = position_reg.Out;
 
 		// hitrostna PI regulacija
+ 		Kp_speed_reg = 5.0;
+ 		Ki_speed_reg = 1e-3;
+
 		speed_loop_control();
 
-		// tokovna PI regulacija
-		current_loop_control();
-
 	} // end of modulation: SVM
+	else
+	{
+		SVM_disable();
+		PCB_LED2_off();
+	}
+
 } // end of position_loop_control
 
 

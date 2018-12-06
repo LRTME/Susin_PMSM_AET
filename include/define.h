@@ -146,20 +146,36 @@ datum       |   parametri delujoèih regulatorjev    |  vrednost |           kome
                     HITROSTNI REGULATOR
 datum       |   parametri delujoèih regulatorjev    |  vrednost |           komentar
 ---------------------------------------------------------------------------------------------
-3.12.2018   |   P del regulatorja hitrosti          |   1.50    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
-3.12.2018   |   I del regulatorja hitrosti          |   1e-4    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
-3.12.2018   |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+5.12.2018   |   P del regulatorja hitrosti          |   1.50    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz - mehko delovanje
+5.12.2018   |   I del regulatorja hitrosti          |   1e-4    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz - mehko delovanje
+5.12.2018   |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz - mehko delovanje
+
+                    HITROSTNI REGULATOR
+datum       |   parametri delujoèih regulatorjev    |  vrednost |           komentar
+---------------------------------------------------------------------------------------------
+5.12.2018   |   P del regulatorja hitrosti          |   3.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz - agresivno delovanje
+5.12.2018   |   I del regulatorja hitrosti          |   5e-4    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz - agresivno delovanje
+5.12.2018   |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz - agresivno delovanje
 
 
 
 
-// parametri pozicijskih regulatorjev
+// parametri regulatorjev pri regulaciji pozicije
+
+                    HITROSTNI REGULATOR
+datum       |   parametri delujoèih regulatorjev    |  vrednost |           komentar
+---------------------------------------------------------------------------------------------
+5.12.2018   |   P del regulatorja hitrosti          |   5.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+5.12.2018   |   I del regulatorja hitrosti          |   1e-3    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+5.12.2018   |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+
+
                     POZICIJSKI REGULATOR
 datum       |   parametri delujoèih regulatorjev    |  vrednost |           komentar
 ---------------------------------------------------------------------------------------------
-3.12.2018   |   P del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
-3.12.2018   |   I del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
-3.12.2018   |   D del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+5.12.2018   |   P del regulatorja hitrosti          |   50.0    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+5.12.2018   |   I del regulatorja hitrosti          |   0.00    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
+5.12.2018   |   D del regulatorja hitrosti          |   1e-3    |   DC link: 24 V, merjenje hitrosti: ABF velja za dusenje: sqrt(2)/2 in mejno_frekvenco: 100 Hz
 
 
 
