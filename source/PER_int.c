@@ -114,9 +114,9 @@ float   Kp_speed_reg = 3.0;  			// velja èe merimo napetost z ABF: Kp = 3.0
 float   Ki_speed_reg = 5e-4;  			// velja èe merimo napetost z ABF: Ki = 5e-4
 
 // PID regulator pozicije
-float   Kp_position_reg = 50.0;  		// Kp = 0.0
+float   Kp_position_reg = 0.0;  		// Kp = 0.0
 float   Ki_position_reg = 0.0;  		// Ki = 0.0
-float   Kd_position_reg = 1e-3;  		// Kd = 0.0
+float   Kd_position_reg = 0.0;  		// Kd = 0.0
 
 // software limits
 float	nap_dc_max = 50.0; 						// V
@@ -1289,13 +1289,9 @@ void position_loop_control(void)
 		position_reg.OutMin = tok_q_ref_min;
 		PID_CTRL_CALC(position_reg);
 
- 		speed_meh_ref = position_reg.Out;
+ 		tok_q_ref = position_reg.Out;
 
-		// hitrostna PI regulacija
- 		Kp_speed_reg = 5.0;
- 		Ki_speed_reg = 1e-3;
-
-		speed_loop_control();
+		current_loop_control();
 
 	} // end of modulation: SVM
 	else
