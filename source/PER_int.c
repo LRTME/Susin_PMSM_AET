@@ -1105,8 +1105,10 @@ void open_loop_control(void)
 		else
 		{
 			// if incremental encoder is connnected
+			amp_rel = direction*pot_rel*0.577;
+
 			ipark_nap.Ds = 0.0;
-			ipark_nap.Qs = direction*pot_rel*0.577;
+			ipark_nap.Qs = amp_rel;
 			ipark_nap.Angle = kot_el;
 
 			IPARK_FLOAT_CALC(ipark_nap);
@@ -1364,20 +1366,24 @@ void position_loop_control(void)
 **************************************************************/
 void trip_reset(void)
 {
+	// clear hardware trip flags
 	TRIP_OC_reset();
+	// disable PWM
 	SVM_disable();
-
+	
+	// clear all flags except 2
 	current_offset_calibrated_flag = TRUE;
-
-	control_enable_flag = FALSE;
-
-	set_null_position_flag = FALSE;
 	reset_null_position_procedure_flag = TRUE;
+	
+	control_enable_flag = FALSE;
+	
+	set_null_position_flag = FALSE;
 	incremental_encoder_connected_flag = FALSE;
-
+	direction_change_flag = FALSE;
+	
 	hardware_trip_oc_flag = FALSE;
 	software_trip_flag = FALSE;
-
+	
 	nap_dc_overvoltage_flag = FALSE;
 	nap_dc_undervoltage_flag = FALSE;
 	nap_v1_overvoltage_flag = FALSE;
@@ -1390,10 +1396,47 @@ void trip_reset(void)
 	tok_i2_overcurrent_flag = FALSE;
 	tok_i3_overcurrent_flag = FALSE;
 
+	// shut off all LEDs
 	PCB_LED1_off();
 	PCB_LED2_off();
 	PCB_LED3_off();
 	PCB_LED4_off();
+	
+	// clear all integral parts of controllers
+	id_reg.Ui = 0.0;
+	iq_reg.Ui = 0.0;
+	speed_reg.Ui = 0.0;
+	position_reg.Ui = 0.0;
+
+	// clear all reference values
+	nap_alpha_ref = 0.0;
+	nap_beta_ref = 0.0;
+	nap_d_ref = 0.0;
+	nap_q_ref = 0.0;
+	tok_d_ref = 0.0;
+	tok_q_ref = 0.0;
+	speed_meh_ref = 0.0;
+	kot_meh_ref = 0.0;
+
+	// clear all open loop values
+	amp_rel = 0.0;
+	freq_meh = 0.0;
+	duty_six_step = 0.0;
+	sector_six_step = 1;
+	duty_DC = 0.0;
+	
+	// set variables to initial state
+	direction = 1;
+	tic_direction = 0;
+	delta_tic_direction = 0;
+	
+	modulation = SVM;
+	control = OPEN_LOOP;
+	
+	kot_raw = 0;
+	kot_meh = 0.0;
+	
+	
 }
 
 
