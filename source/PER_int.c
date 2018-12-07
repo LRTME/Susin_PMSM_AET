@@ -1075,7 +1075,7 @@ void open_loop_control(void)
 			// if incremental encoder is NOT connnected
 
 			// potenciometer is changing duty cycle
-			amp_rel = direction*pot_rel;
+			amp_rel = pot_rel;
 
 			// button 3 and 4 are changing mechanical freqency
 			if(b3_press_int == TRUE)
@@ -1100,7 +1100,7 @@ void open_loop_control(void)
 			freq = POLE_PAIRS * freq_meh;
 
 			nap_alpha_ref = amp_rel*cos(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
-			nap_beta_ref =  amp_rel*sin(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
+			nap_beta_ref =  direction*amp_rel*sin(2*PI*freq*interrupt_cnt/SAMPLE_FREQ);
 		}
 		else
 		{
