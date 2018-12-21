@@ -14,7 +14,7 @@
 // number of channels
 #define     DLOG_GEN_NR     4
 // size of each buffer
-#define     DLOG_GEN_SIZE   2000
+#define     DLOG_GEN_SIZE   4000
 
 /**************************************************************
 * update DLOG module

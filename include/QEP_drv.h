@@ -10,7 +10,10 @@
 #include    "F28x_Project.h"
 #include    "define.h"
 
-#define		QEP_MODUL1	EQep3Regs
+#define		QEP_MODUL1		EQep3Regs
+
+#define 	QEP_LINES     	2500            // stevilo crtic na obrat (le QEPA signal)
+#define 	QEP_PULSES     	QEP_LINES * 4   // stevilo pulzov na obrat (diferencialno QEPA in QEPB)
 
 /**************************************************************
 * Funkcije, ki inicializirajo QEP modul

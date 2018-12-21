@@ -19,6 +19,7 @@
 #include    "ADC_drv.h"
 #include    "PCB_util.h"
 
+#include 	"CAP_drv.h"
 #include 	"QEP_drv.h"
 #include    "SPI_drv.h"
 

@@ -46,8 +46,9 @@ void main(void)
     ADC_init();
     SVM_init();
 
-    // initialize QEP and SPI
-    QEP_init(4*2500L); 		// incremental encoder has 10000 pulses per revolution
+    // initialize CAP, QEP and SPI
+    CAP_init();
+    QEP_init(QEP_PULSES); 		// incremental encoder has 10000 pulses per revolution
     SPI_init(8, 1, 1, 0); 	// SPI_init(int bits, long clock, int clk_phase, int clk_polarity)
 
     // enable hardware overcurrent protection via trip zone

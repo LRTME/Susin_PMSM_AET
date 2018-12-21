@@ -16,6 +16,7 @@
 #include    "ADC_drv.h"
 #include    "PCB_util.h"
 
+#include	"CAP_drv.h"
 #include 	"QEP_drv.h"
 #include    "SPI_drv.h"
 
@@ -28,7 +29,7 @@
 #include	"ABF_omega.h"
 #include	"PI_ctrl.h"
 #include	"PID_ctrl.h"
-
+#include	"RES_REG.h"
 
 #include    "DLOG_gen.h"
 #include    "REF_gen.h"
@@ -99,6 +100,11 @@ extern void speed_loop_control(void);
 * Function for position loop control
 **************************************************************/
 extern void position_loop_control(void);
+
+/**************************************************************
+* Function, which clears integral parts and outputs of controllers
+**************************************************************/
+extern void clear_controllers(void);
 
 /**************************************************************
 * Function, which resets control alghorithm after trip
