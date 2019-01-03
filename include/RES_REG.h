@@ -9,6 +9,7 @@
 * VERSION   DATE        WHO             DETAIL
 * 1.0       6.4.2016	Denis Sušin      Initial version
 * 2.0		29.3.2018	Denis Sušin      Phase lag compensation added, feedforward removed
+* 3.0		3.1.2019	Denis Sušin		 Added limitation of integral parts
 
 ****************************************************************/
 
@@ -96,6 +97,24 @@ typedef struct RES_REG_FLOAT_STRUCT
     {                                               								\
 		v.Ui1 = v.Ui1 + v.Kres * v.Err * v.Cos;    									\
 		v.Ui2 = v.Ui2 + v.Kres * v.Err * v.Sin;     								\
+    }                                               								\
+																					\
+	if(v.Ui1 > v.OutMax)															\
+    {                                               								\
+		v.Ui1 = v.OutMax;    														\
+    }                                               								\
+	else if(v.Ui1 < v.OutMin)														\
+    {                                               								\
+		v.Ui1 = v.OutMin;    														\
+    }                                               								\
+																					\
+	if(v.Ui2 > v.OutMax)															\
+    {                                               								\
+		v.Ui2 = v.OutMax;    														\
+    }                                               								\
+	else if(v.Ui2 < v.OutMin)														\
+    {                                               								\
+		v.Ui2 = v.OutMin;    														\
     }                                               								\
 } 
 #endif // __RES_REG_H__
