@@ -76,6 +76,8 @@ float	nap_alpha_ref = 0.0;
 float	nap_beta_ref = 0.0;
 float	nap_d_ref = 0.0;
 float	nap_q_ref = 0.0;
+float	nap_dq = 0.0;
+bool	saturation = FALSE;
 
 // other electrical variables
 float	pot_rel = 0.0;
@@ -869,6 +871,19 @@ void get_electrical(void)
     tok_d = park_tok.Ds;
     tok_q = park_tok.Qs;
 
+    // izracun nasièenja
+    nap_dq = sqrt(nap_d_ref*nap_d_ref + nap_q_ref*nap_q_ref);
+
+    if(nap_dq < 1.0/SQRT3 && interrupt_cnt == 0)
+    {
+    	saturation = FALSE;
+    }
+    if(nap_dq > 1.0/SQRT3)
+    {
+    	saturation = TRUE;
+    }
+
+
 /*
     // izraèun dejanskega navora
     navor_elektromagnetni = 3.0/2.0*POLE_PAIRS*PSI_ROT*tok_q;
@@ -1405,12 +1420,12 @@ void current_loop_control(void)
 		RES_REG_CALC(id_RES_reg_6);
 
 
-		// omogoèin/onemogoèim RES reg. - d os
+		// omogoèim/onemogoèim RES reg. - d os
 		if(enable_current_RES_reg == TRUE)
 		{
 			nap_d_ref = id_PI_reg.Out + id_RES_reg_1.Out + id_RES_reg_2.Out + id_RES_reg_3.Out \
 									  + id_RES_reg_4.Out + id_RES_reg_5.Out + id_RES_reg_6.Out;
-			nap_d_ref = id_PI_reg.Out + id_RES_reg_1.Out;
+//			nap_d_ref = id_PI_reg.Out + id_RES_reg_1.Out;
 		}
 		else
 		{
@@ -1575,12 +1590,12 @@ void current_loop_control(void)
 		RES_REG_CALC(iq_RES_reg_6);
 
 
-		// omogoèin/onemogoèim RES reg. - q os
+		// omogoèim/onemogoèim RES reg. - q os
 		if(enable_current_RES_reg == TRUE)
 		{
 			nap_q_ref = iq_PI_reg.Out + iq_RES_reg_1.Out + iq_RES_reg_2.Out + iq_RES_reg_3.Out \
 												  + iq_RES_reg_4.Out + iq_RES_reg_5.Out + iq_RES_reg_6.Out;
-			nap_q_ref = iq_PI_reg.Out + iq_RES_reg_1.Out;
+//			nap_q_ref = iq_PI_reg.Out + iq_RES_reg_1.Out;
 		}
 		else
 		{
@@ -1955,7 +1970,6 @@ void PER_int_setup(void)
     iq_RES_reg_1.Harmonic = 6;
     iq_RES_reg_1.Kres = 0.9*Ki_iq_PI_reg;
     iq_RES_reg_1.PhaseCompDeg = 0.0;
-    iq_RES_reg_1.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_1.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
     iq_RES_reg_1.OutMax = 0.2;
     iq_RES_reg_1.OutMin = -0.2;
     iq_RES_reg_1.Out = 0.0;
@@ -1963,73 +1977,71 @@ void PER_int_setup(void)
     id_RES_reg_2.Harmonic = 12;
     id_RES_reg_2.Kres = 0.0*Ki_id_PI_reg;
     id_RES_reg_2.PhaseCompDeg = 0.0;
-    id_RES_reg_2.OutMax = 0.2;
-    id_RES_reg_2.OutMin = -0.2;
+    id_RES_reg_2.OutMax = 0.1;
+    id_RES_reg_2.OutMin = -0.1;
     id_RES_reg_2.Out = 0.0;
 
     iq_RES_reg_2.Harmonic = 12;
     iq_RES_reg_2.Kres = 0.0*Ki_iq_PI_reg;
     iq_RES_reg_2.PhaseCompDeg = 0.0;
-    iq_RES_reg_2.OutMax = 0.2;
-    iq_RES_reg_2.OutMin = -0.2;
+    iq_RES_reg_2.OutMax = 0.1;
+    iq_RES_reg_2.OutMin = -0.1;
     iq_RES_reg_2.Out = 0.0;
 
     id_RES_reg_3.Harmonic = 18;
     id_RES_reg_3.Kres = 0.0*Ki_id_PI_reg;
     id_RES_reg_3.PhaseCompDeg = 60.0;
-    id_RES_reg_3.OutMax = 0.2;
-    id_RES_reg_3.OutMin = -0.2;
+    id_RES_reg_3.OutMax = 0.02;
+    id_RES_reg_3.OutMin = -0.02;
     id_RES_reg_3.Out = 0.0;
 
     iq_RES_reg_3.Harmonic = 18;
     iq_RES_reg_3.Kres = 0.0*Ki_iq_PI_reg;
     iq_RES_reg_3.PhaseCompDeg = 60.0;
-
-    iq_RES_reg_3.OutMax = 0.2;
-    iq_RES_reg_3.OutMin = -0.2;
+    iq_RES_reg_3.OutMax = 0.02;
+    iq_RES_reg_3.OutMin = -0.02;
     iq_RES_reg_3.Out = 0.0;
 
     id_RES_reg_4.Harmonic = 24;
     id_RES_reg_4.Kres = 0.0*Ki_id_PI_reg;
     id_RES_reg_4.PhaseCompDeg = 90.0;
-
-    id_RES_reg_4.OutMax = 0.2;
-    id_RES_reg_4.OutMin = -0.2;
+    id_RES_reg_4.OutMax = 0.02;
+    id_RES_reg_4.OutMin = -0.02;
     id_RES_reg_4.Out = 0.0;
 
     iq_RES_reg_4.Harmonic = 24;
     iq_RES_reg_4.Kres = 0.0*Ki_iq_PI_reg;
     iq_RES_reg_4.PhaseCompDeg = 90.0;
-    iq_RES_reg_4.OutMax = 0.2;
-    iq_RES_reg_4.OutMin = -0.2;
+    iq_RES_reg_4.OutMax = 0.02;
+    iq_RES_reg_4.OutMin = -0.02;
     iq_RES_reg_4.Out = 0.0;
 
     id_RES_reg_5.Harmonic = 30;
     id_RES_reg_5.Kres = 0.0*Ki_id_PI_reg;
     id_RES_reg_5.PhaseCompDeg = 90.0;
-    id_RES_reg_5.OutMax = 0.2;
-    id_RES_reg_5.OutMin = -0.2;
+    id_RES_reg_5.OutMax = 0.02;
+    id_RES_reg_5.OutMin = -0.02;
     id_RES_reg_5.Out = 0.0;
 
     iq_RES_reg_5.Harmonic = 30;
     iq_RES_reg_5.Kres = 0.0*Ki_iq_PI_reg;
     iq_RES_reg_5.PhaseCompDeg = 90.0;
-    iq_RES_reg_5.OutMax = 0.2;
-    iq_RES_reg_5.OutMin = -0.2;
+    iq_RES_reg_5.OutMax = 0.02;
+    iq_RES_reg_5.OutMin = -0.02;
     iq_RES_reg_5.Out = 0.0;
 
     id_RES_reg_6.Harmonic = 36;
     id_RES_reg_6.Kres = 0.0*Ki_id_PI_reg;
     id_RES_reg_6.PhaseCompDeg = 90.0;
-    id_RES_reg_6.OutMax = 0.2;
-    id_RES_reg_6.OutMin = -0.2;
+    id_RES_reg_6.OutMax = 0.02;
+    id_RES_reg_6.OutMin = -0.02;
     id_RES_reg_6.Out = 0.0;
 
     iq_RES_reg_6.Harmonic = 36;
     iq_RES_reg_6.Kres = 0.0*Ki_iq_PI_reg;
     iq_RES_reg_6.PhaseCompDeg = 90.0;
-    iq_RES_reg_6.OutMax = 0.2;
-    iq_RES_reg_6.OutMin = -0.2;
+    iq_RES_reg_6.OutMax = 0.02;
+    iq_RES_reg_6.OutMin = -0.02;
     iq_RES_reg_6.Out = 0.0;
 
 	// Clear integral parts and outputs of all controllers
