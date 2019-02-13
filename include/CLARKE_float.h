@@ -33,6 +33,7 @@ typedef struct CLARKE_FLOAT_STRUCT
 /*------------------------------------------------------------------------------
 	CLARKE Transformation Macro Definition
 ------------------------------------------------------------------------------*/
+// ze uposteva faktor c = 2/3, tako, da se amplitude pred in po transformaciji ohranjajo
 #define CLARKE_FLOAT_CALC(v)						\
 {													\
     v.Alpha = v.As;									\
