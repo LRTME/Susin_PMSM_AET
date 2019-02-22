@@ -70,6 +70,9 @@ float	nap_dc_gain = 0.971 * ((620.0 + 10000.0)/620.0) * (3.0/4096.0);
 float	nap_v1 = 0.0;
 float	nap_v2 = 0.0;
 float	nap_v3 = 0.0;
+float	nap_v12 = 0.0;
+float	nap_v23 = 0.0;
+float	nap_v31 = 0.0;
 float	nap_dc = 0.0;
 
 float	nap_alpha_ref = 0.0;
@@ -162,8 +165,8 @@ float   tok_q_ref_min = -40.0;  				// A
 float   navor_ref_max = 5.89;    				// Nm
 float   navor_ref_min = -5.89;   				// Nm
 
-float   speed_ref_max = 50.0;  					// Hz
-float   speed_ref_min = -50.0; 					// Hz
+float   speed_ref_max = 30.0;  					// Hz
+float   speed_ref_min = -30.0; 					// Hz
 
 // flags
 bool 	current_offset_calibrated_flag = FALSE;
@@ -829,9 +832,13 @@ void get_electrical(void)
     nap_v2 = nap_v_gain * (ADC_VOLTAGE_2 - nap_v2_offset);
     nap_v3 = nap_v_gain * (ADC_VOLTAGE_3 - nap_v3_offset);
 
+    // medfazne napetosti v12, v23, v31
+    nap_v12 = nap_v1 - nap_v2;
+    nap_v23 = nap_v2 - nap_v3;
+    nap_v31 = nap_v3 - nap_v1;
+
     // napetost DC linka
     nap_dc = nap_dc_gain * (ADC_VOLTAGE_DC - nap_dc_offset);
-
 
     // pot_rel
     pot_rel = ADC_POT * (1/4096.0);
@@ -1167,8 +1174,11 @@ void open_loop_control(void)
 			// if incremental encoder is connnected
 			amp_rel = direction*pot_rel_discrete*0.577;
 
-			ipark_nap.Ds = 0.0;
-			ipark_nap.Qs = amp_rel;
+			nap_d_ref = 0.0;
+			nap_q_ref = amp_rel;
+
+			ipark_nap.Ds = nap_d_ref;
+			ipark_nap.Qs = nap_q_ref;
 			ipark_nap.Angle = kot_el;
 
 			IPARK_FLOAT_CALC(ipark_nap);
