@@ -44,7 +44,7 @@ long	tok_i1_raw_offset = 0;
 long	tok_i2_raw_offset = 0;
 long	tok_i3_raw_offset = 0;
 
-float   tok_i_gain = (48.0/0.625) * (7.5/5.6) * (1.0/4096.0);// (7.5/5.6) * (48.0/0.625) * (3.0/4096.0) * (1.0/3.0);
+float   tok_i_gain = 1.10*(48.0/0.625) * (7.5/5.6) * (1.0/4096.0);// (7.5/5.6) * (48.0/0.625) * (3.0/4096.0) * (1.0/3.0);
 
 float	tok_i1 = 0.0;
 float	tok_i2 = 0.0;
@@ -165,8 +165,8 @@ float   tok_q_ref_min = -40.0;  				// A
 float   navor_ref_max = 5.89;    				// Nm
 float   navor_ref_min = -5.89;   				// Nm
 
-float   speed_ref_max = 30.0;  					// Hz
-float   speed_ref_min = -30.0; 					// Hz
+float   speed_ref_max = 40.0;  					// Hz
+float   speed_ref_min = -40.0; 					// Hz
 
 // flags
 bool 	current_offset_calibrated_flag = FALSE;
