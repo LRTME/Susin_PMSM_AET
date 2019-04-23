@@ -79,7 +79,7 @@ float	nap_alpha_ref = 0.0;
 float	nap_beta_ref = 0.0;
 float	nap_d_ref = 0.0;
 float	nap_q_ref = 0.0;
-float	nap_dq = 0.0;
+float	nap_dq_ref = 0.0;
 bool	saturation = FALSE;
 
 // other electrical variables
@@ -879,13 +879,13 @@ void get_electrical(void)
     tok_q = park_tok.Qs;
 
     // izracun nasièenja
-    nap_dq = sqrt(nap_d_ref*nap_d_ref + nap_q_ref*nap_q_ref);
+    nap_dq_ref = sqrt(nap_d_ref*nap_d_ref + nap_q_ref*nap_q_ref);
 
-    if(nap_dq < 1.0/SQRT3 && interrupt_cnt == 0)
+    if(nap_dq_ref < 1.0/SQRT3 && interrupt_cnt == 0)
     {
     	saturation = FALSE;
     }
-    if(nap_dq > 1.0/SQRT3)
+    if(nap_dq_ref > 1.0/SQRT3)
     {
     	saturation = TRUE;
     }
@@ -1398,41 +1398,41 @@ void current_loop_control(void)
 		}
 */
 
-		// izraèun RES reg. - d os
-		id_RES_reg_1.Ref = tok_d_ref;
-		id_RES_reg_1.Fdb = tok_d;
-		id_RES_reg_1.Angle = kot_el;
-		RES_REG_CALC(id_RES_reg_1);
-
-		id_RES_reg_2.Ref = tok_d_ref;
-		id_RES_reg_2.Fdb = tok_d;
-		id_RES_reg_2.Angle = kot_el;
-		RES_REG_CALC(id_RES_reg_2);
-
-		id_RES_reg_3.Ref = tok_d_ref;
-		id_RES_reg_3.Fdb = tok_d;
-		id_RES_reg_3.Angle = kot_el;
-		RES_REG_CALC(id_RES_reg_3);
-
-		id_RES_reg_4.Ref = tok_d_ref;
-		id_RES_reg_4.Fdb = tok_d;
-		id_RES_reg_4.Angle = kot_el;
-		RES_REG_CALC(id_RES_reg_4);
-
-		id_RES_reg_5.Ref = tok_d_ref;
-		id_RES_reg_5.Fdb = tok_d;
-		id_RES_reg_5.Angle = kot_el;
-		RES_REG_CALC(id_RES_reg_5);
-
-		id_RES_reg_6.Ref = tok_d_ref;
-		id_RES_reg_6.Fdb = tok_d;
-		id_RES_reg_6.Angle = kot_el;
-		RES_REG_CALC(id_RES_reg_6);
-
-
 		// omogoèim/onemogoèim RES reg. - d os
 		if(enable_current_RES_reg == TRUE)
 		{
+			// izraèun RES reg. - d os
+			id_RES_reg_1.Ref = tok_d_ref;
+			id_RES_reg_1.Fdb = tok_d;
+			id_RES_reg_1.Angle = kot_el;
+			RES_REG_CALC(id_RES_reg_1);
+
+			id_RES_reg_2.Ref = tok_d_ref;
+			id_RES_reg_2.Fdb = tok_d;
+			id_RES_reg_2.Angle = kot_el;
+			RES_REG_CALC(id_RES_reg_2);
+
+			id_RES_reg_3.Ref = tok_d_ref;
+			id_RES_reg_3.Fdb = tok_d;
+			id_RES_reg_3.Angle = kot_el;
+			RES_REG_CALC(id_RES_reg_3);
+
+			id_RES_reg_4.Ref = tok_d_ref;
+			id_RES_reg_4.Fdb = tok_d;
+			id_RES_reg_4.Angle = kot_el;
+			RES_REG_CALC(id_RES_reg_4);
+
+			id_RES_reg_5.Ref = tok_d_ref;
+			id_RES_reg_5.Fdb = tok_d;
+			id_RES_reg_5.Angle = kot_el;
+			RES_REG_CALC(id_RES_reg_5);
+
+			id_RES_reg_6.Ref = tok_d_ref;
+			id_RES_reg_6.Fdb = tok_d;
+			id_RES_reg_6.Angle = kot_el;
+			RES_REG_CALC(id_RES_reg_6);
+
+
 			nap_d_ref = id_PI_reg.Out + id_RES_reg_1.Out + id_RES_reg_2.Out + id_RES_reg_3.Out \
 									  + id_RES_reg_4.Out + id_RES_reg_5.Out + id_RES_reg_6.Out;
 //			nap_d_ref = id_PI_reg.Out + id_RES_reg_1.Out;
@@ -1568,41 +1568,41 @@ void current_loop_control(void)
 		}
 */
 
-		// izraèun RES reg. - q os
-		iq_RES_reg_1.Ref = tok_q_ref;
-		iq_RES_reg_1.Fdb = tok_q;
-		iq_RES_reg_1.Angle = kot_el;
-		RES_REG_CALC(iq_RES_reg_1);
-
-		iq_RES_reg_2.Ref = tok_q_ref;
-		iq_RES_reg_2.Fdb = tok_q;
-		iq_RES_reg_2.Angle = kot_el;
-		RES_REG_CALC(iq_RES_reg_2);
-
-		iq_RES_reg_3.Ref = tok_q_ref;
-		iq_RES_reg_3.Fdb = tok_q;
-		iq_RES_reg_3.Angle = kot_el;
-		RES_REG_CALC(iq_RES_reg_3);
-
-		iq_RES_reg_4.Ref = tok_q_ref;
-		iq_RES_reg_4.Fdb = tok_q;
-		iq_RES_reg_4.Angle = kot_el;
-		RES_REG_CALC(iq_RES_reg_4);
-
-		iq_RES_reg_5.Ref = tok_q_ref;
-		iq_RES_reg_5.Fdb = tok_q;
-		iq_RES_reg_5.Angle = kot_el;
-		RES_REG_CALC(iq_RES_reg_5);
-
-		iq_RES_reg_6.Ref = tok_q_ref;
-		iq_RES_reg_6.Fdb = tok_q;
-		iq_RES_reg_6.Angle = kot_el;
-		RES_REG_CALC(iq_RES_reg_6);
-
-
 		// omogoèim/onemogoèim RES reg. - q os
 		if(enable_current_RES_reg == TRUE)
 		{
+			// izraèun RES reg. - q os
+			iq_RES_reg_1.Ref = tok_q_ref;
+			iq_RES_reg_1.Fdb = tok_q;
+			iq_RES_reg_1.Angle = kot_el;
+			RES_REG_CALC(iq_RES_reg_1);
+
+			iq_RES_reg_2.Ref = tok_q_ref;
+			iq_RES_reg_2.Fdb = tok_q;
+			iq_RES_reg_2.Angle = kot_el;
+			RES_REG_CALC(iq_RES_reg_2);
+
+			iq_RES_reg_3.Ref = tok_q_ref;
+			iq_RES_reg_3.Fdb = tok_q;
+			iq_RES_reg_3.Angle = kot_el;
+			RES_REG_CALC(iq_RES_reg_3);
+
+			iq_RES_reg_4.Ref = tok_q_ref;
+			iq_RES_reg_4.Fdb = tok_q;
+			iq_RES_reg_4.Angle = kot_el;
+			RES_REG_CALC(iq_RES_reg_4);
+
+			iq_RES_reg_5.Ref = tok_q_ref;
+			iq_RES_reg_5.Fdb = tok_q;
+			iq_RES_reg_5.Angle = kot_el;
+			RES_REG_CALC(iq_RES_reg_5);
+
+			iq_RES_reg_6.Ref = tok_q_ref;
+			iq_RES_reg_6.Fdb = tok_q;
+			iq_RES_reg_6.Angle = kot_el;
+			RES_REG_CALC(iq_RES_reg_6);
+
+
 			nap_q_ref = iq_PI_reg.Out + iq_RES_reg_1.Out + iq_RES_reg_2.Out + iq_RES_reg_3.Out \
 												  + iq_RES_reg_4.Out + iq_RES_reg_5.Out + iq_RES_reg_6.Out;
 //			nap_q_ref = iq_PI_reg.Out + iq_RES_reg_1.Out;
