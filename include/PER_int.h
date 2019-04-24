@@ -29,7 +29,10 @@
 #include	"ABF_omega.h"
 #include	"PI_ctrl.h"
 #include	"PID_ctrl.h"
+
 #include	"RES_REG.h"
+#include	"REP_REG.h"
+#include	"DCT_REG.h"
 
 #include    "DLOG_gen.h"
 #include    "REF_gen.h"
@@ -90,6 +93,12 @@ void open_loop_control(void);
 * Function for current loop control
 **************************************************************/
 extern void current_loop_control(void);
+
+/**************************************************************
+* Function for advanced current loop control,
+* where additional current controller in parallel with PI controller is added
+**************************************************************/
+extern void extra_current_loop_control(void);
 
 /**************************************************************
 * Function for speed loop control
