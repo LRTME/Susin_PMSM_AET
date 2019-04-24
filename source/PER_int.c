@@ -6,6 +6,7 @@
 ****************************************************************/
 #include    "PER_int.h"
 #include    "TIC_toc.h"
+#include    "TIC_toc_1.h"
 
 
 /**************************************************************************
@@ -14,10 +15,11 @@
 volatile enum	MODULATION modulation = SVM;
 volatile enum	CONTROL control = OPEN_LOOP;
 
-volatile enum	{NONE, RES, REP, DCT} extra_current_reg_type = NONE;
+volatile enum	{NONE, RES, RES_multiple, REP, DCT} extra_current_reg_type = NONE;
+
+bool			enable_extra_current_reg = FALSE;
 
 bool			auto_calc_of_res_reg_params = FALSE;
-bool			enable_extra_current_reg = FALSE;
 
 /**************************************************************************
  * End of user interface
@@ -150,8 +152,10 @@ RES_REG_float	id_RES_reg_5 = RES_REG_FLOAT_DEFAULTS;
 RES_REG_float	iq_RES_reg_5 = RES_REG_FLOAT_DEFAULTS;
 RES_REG_float	id_RES_reg_6 = RES_REG_FLOAT_DEFAULTS;
 RES_REG_float	iq_RES_reg_6 = RES_REG_FLOAT_DEFAULTS;
-float 			id_RES_reg_out = 0.0;
-float 			iq_RES_reg_out = 0.0;
+float 			id_multiple_RES_reg_out = 0.0;
+float 			iq_multiple_RES_reg_out = 0.0;
+float			cas_izracuna_RES_reg = 0.0;
+float			cas_izracuna_RES_multiple_reg = 0.0;
 
 // automatic calculation of RES current controller parameters
 float			freq_critical = 0.0;
@@ -161,14 +165,12 @@ float			factor_additional_res_reg = 1.0;
 // advanced current repetitive (REP) controllers
 REP_REG_float	id_REP_reg = REP_REG_FLOAT_DEFAULTS;
 REP_REG_float	iq_REP_reg = REP_REG_FLOAT_DEFAULTS;
-float 			id_REP_reg_out = 0.0;
-float 			iq_REP_reg_out = 0.0;
+float			cas_izracuna_REP_reg = 0.0;
 
 // advanced current discrete cosinus transform (DCT) controller
 //DCT_REG_float	id_DCT_reg = DCT_REG_FLOAT_DEFAULTS;
 //DCT_REG_float	iq_DCT_reg = DCT_REG_FLOAT_DEFAULTS;
-float 			id_DCT_reg_out = 0.0;
-float 			iq_DCT_reg_out = 0.0;
+float			cas_izracuna_DCT_reg = 0.0;
 
 // speed PI controller
 float   Kp_speed_PI_reg = 3.0;  			// velja èe merimo napetost z ABF: Kp = 3.0
@@ -1465,6 +1467,8 @@ void extra_current_loop_control(void)
 
 
 		// izracun RES reg. - d os
+		TIC_start_1();
+
 		id_RES_reg_1.Ref = tok_d_ref;
 		id_RES_reg_1.Fdb = tok_d;
 		id_RES_reg_1.Angle = kot_el;
@@ -1496,22 +1500,27 @@ void extra_current_loop_control(void)
 		RES_REG_CALC(id_RES_reg_6);
 
 
-		id_RES_reg_out = id_RES_reg_1.Out + id_RES_reg_2.Out + id_RES_reg_3.Out + \
+		id_multiple_RES_reg_out = id_RES_reg_1.Out + id_RES_reg_2.Out + id_RES_reg_3.Out + \
 						 id_RES_reg_4.Out + id_RES_reg_5.Out + id_RES_reg_6.Out;
+
+		TIC_stop_1();
+		cas_izracuna_RES_multiple_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
+		cas_izracuna_RES_reg = cas_izracuna_RES_multiple_reg/6.0;
 
 	} // end of if(extra_current_reg_type == RES)
 	else if(extra_current_reg_type == REP)
 	{
-/*
-		id_REP_reg.Ref = tok_grid_reg.Ref;
-		id_REP_reg.Fdb = tok_grid_reg.Fdb;
+		// izracun REP reg. - d os
+		id_REP_reg.Ref = tok_d_ref;
+		id_REP_reg.Fdb = tok_d;
 		id_REP_reg.SamplingSignal = kot_el;
 
 		TIC_start_1();
+
 		REP_REG_CALC(&id_REP_reg);
+
 		TIC_stop_1();
-*/
-		// cas_izracuna_REP_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
+		cas_izracuna_REP_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
 
 	}// end of else if(extra_current_reg_type == REP)
 	else if(extra_current_reg_type == DCT)
@@ -1610,6 +1619,8 @@ void extra_current_loop_control(void)
 
 
 		// izraèun RES reg. - q os
+		TIC_start_1();
+
 		iq_RES_reg_1.Ref = tok_q_ref;
 		iq_RES_reg_1.Fdb = tok_q;
 		iq_RES_reg_1.Angle = kot_el;
@@ -1641,13 +1652,28 @@ void extra_current_loop_control(void)
 		RES_REG_CALC(iq_RES_reg_6);
 
 
-		iq_RES_reg_out = iq_RES_reg_1.Out + iq_RES_reg_2.Out + iq_RES_reg_3.Out + \
+		iq_multiple_RES_reg_out = iq_RES_reg_1.Out + iq_RES_reg_2.Out + iq_RES_reg_3.Out + \
 						 iq_RES_reg_4.Out + iq_RES_reg_5.Out + iq_RES_reg_6.Out;
+
+		TIC_stop_1();
+		cas_izracuna_RES_multiple_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
+		cas_izracuna_RES_reg = cas_izracuna_RES_multiple_reg/6.0;
 
 	} // end of if(extra_current_reg_type == RES)
 
 	else if(extra_current_reg_type == REP)
 	{
+		// izracun REP reg. - q os
+		iq_REP_reg.Ref = tok_q_ref;
+		iq_REP_reg.Fdb = tok_q;
+		iq_REP_reg.SamplingSignal = kot_el;
+
+		TIC_start_1();
+
+		REP_REG_CALC(&iq_REP_reg);
+
+		TIC_stop_1();
+		cas_izracuna_REP_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
 
 	}// end of else if(extra_current_reg_type == REP)
 
@@ -1670,16 +1696,20 @@ void extra_current_loop_control(void)
 			extra_iq_reg_out = 0.0;
 			break;
 		case RES:
-			extra_id_reg_out = id_RES_reg_out;
-			extra_iq_reg_out = iq_RES_reg_out;
+			extra_id_reg_out = id_RES_reg_1.Out;
+			extra_iq_reg_out = iq_RES_reg_1.Out;
+			break;
+		case RES_multiple:
+			extra_id_reg_out = id_multiple_RES_reg_out;
+			extra_iq_reg_out = iq_multiple_RES_reg_out;
 			break;
 		case REP:
-			extra_id_reg_out = id_REP_reg_out;
-			extra_iq_reg_out = iq_REP_reg_out;
+			extra_id_reg_out = id_REP_reg.Out;
+			extra_iq_reg_out = iq_REP_reg.Out;
 			break;
 		case DCT:
-			extra_id_reg_out = id_DCT_reg_out;
-			extra_iq_reg_out = iq_DCT_reg_out;
+//			extra_id_reg_out = id_DCT_reg.Out;
+//			extra_iq_reg_out = iq_DCT_reg.Out;
 			break;
 		default:
 			extra_id_reg_out = 0.0;
@@ -1740,6 +1770,14 @@ void extra_current_loop_control(void)
 		iq_RES_reg_5.Out = 0.0;
 		id_RES_reg_6.Out = 0.0;
 		iq_RES_reg_6.Out = 0.0;
+
+
+
+
+		// clear all integral parts of repetitive controllers
+
+		// clear all outputs of repetitive controllers
+
 	} // end of if(extra_current_reg_type == NONE)
 
 } // end of void extra_current_loop_control(void)
@@ -1997,6 +2035,13 @@ void clear_controllers(void)
 	iq_RES_reg_5.Out = 0.0;
 	id_RES_reg_6.Out = 0.0;
 	iq_RES_reg_6.Out = 0.0;
+
+
+
+
+	// clear all integral parts of repetitive controllers
+
+	// clear all outputs of repetitive controllers
 }
 
 
@@ -2024,6 +2069,7 @@ void PER_int_setup(void)
     dlog.iptr3 = &speed_meh_CAP;
     dlog.iptr4 = &tok_i1;
 
+
     // initialize reference generator
     ref_gen.type = REF_Step;
     ref_gen.amp = 1.0;
@@ -2033,7 +2079,8 @@ void PER_int_setup(void)
     ref_gen.slew = 100;
     ref_gen.samp_period = SAMPLE_TIME;
     
-    // initialize resonant controllers
+
+    // initialize current resonant controllers
 	id_RES_reg_1.Harmonic = 6;
 	id_RES_reg_1.Kres = 0.9*Ki_id_PI_reg;
 	id_RES_reg_1.PhaseCompDeg = 0.0;
@@ -2118,7 +2165,34 @@ void PER_int_setup(void)
     iq_RES_reg_6.OutMin = -0.02;
     iq_RES_reg_6.Out = 0.0;
 
-	// Clear integral parts and outputs of all controllers
+
+    // initialize current repetitive controller
+    REP_REG_INIT_MACRO(id_REP_reg);
+    id_REP_reg.BufferHistoryLength = 400; // 400 = 20kHz/50 Hz
+    id_REP_reg.Krep = 0.01; // 0.02
+    id_REP_reg.k = 6; // 6
+    id_REP_reg.w0 = 0.2; // 0.2
+    id_REP_reg.w1 = 0.2; // 0.2
+    id_REP_reg.w2 = 0.2; // 0.2
+    id_REP_reg.ErrSumMax = 0.6;
+    id_REP_reg.ErrSumMin = -0.6;
+    id_REP_reg.OutMax = 0.5;
+    id_REP_reg.OutMin = -0.5;
+
+    REP_REG_INIT_MACRO(iq_REP_reg);
+    iq_REP_reg.BufferHistoryLength = id_REP_reg.BufferHistoryLength; // 400 = 20kHz/50 Hz
+    iq_REP_reg.Krep = id_REP_reg.Krep; // 0.02
+    iq_REP_reg.k = id_REP_reg.k; // 6
+    iq_REP_reg.w0 = id_REP_reg.w0; // 0.2
+    iq_REP_reg.w1 = id_REP_reg.w1; // 0.2
+    iq_REP_reg.w2 = id_REP_reg.w2; // 0.2
+    iq_REP_reg.ErrSumMax = id_REP_reg.ErrSumMax;
+    iq_REP_reg.ErrSumMin = id_REP_reg.ErrSumMin;
+    iq_REP_reg.OutMax = id_REP_reg.OutMax;
+    iq_REP_reg.OutMin = id_REP_reg.OutMin;
+
+
+	// clear integral parts and outputs of all controllers
 	clear_controllers();
 
 	// disable extra current controllers
@@ -2126,7 +2200,9 @@ void PER_int_setup(void)
 	auto_calc_of_res_reg_params = FALSE;
 
     // initialize stopwatch
-    TIC_init();
+	TIC_init();
+	TIC_init_1();
+
 
     // setup interrupt trigger
     EPwm1Regs.ETSEL.bit.INTSEL = ET_CTR_ZERO;
