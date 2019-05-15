@@ -83,6 +83,7 @@ typedef struct REP_REG_FLOAT_STRUCT
         v.ErrSumHistory[v.i] = 0.0;                   		\
     }                                                   	\
     v.i = 0;                                            	\
+    v.i_prev = MAX_LENGTH_REP_REG_BUFFER;                   \
 }
 
 

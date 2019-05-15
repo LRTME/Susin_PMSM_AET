@@ -9,9 +9,13 @@
 * VERSION   DATE        WHO             DETAIL
 * 1.0       6.4.2016   Denis Sušin      Initial version
 * 1.1		21.8.2017  Denis Sušin		Corrections of comments and names of variables
+* 2.0		15.5.2019  Denis Sušin		Circular buffer compacted into function
 ****************************************************************/
 
 #include "REP_REG.h"
+
+// deklaracija funkcij
+int circular_buffer_transformation(int IndexLinearBuffer, int BufferSize);
 
 // globalne spremenljivke
 
@@ -20,12 +24,15 @@
 
 
 
-// funkcija
+
+
+/****************************************************************************************************
+* Funkcija, ki izvede algoritem repetitivnega regulatorja
+****************************************************************************************************/
 #pragma CODE_SECTION(REP_REG_CALC, "ramfuncs");
 void REP_REG_CALC (REP_REG_float *v)
 {
     // lokalne spremenljivke
-	static int first_start = 0;
 
 
 
@@ -65,107 +72,49 @@ void REP_REG_CALC (REP_REG_float *v)
 
 
 
-
-
-    // èe se indeks spremeni, potem gre algoritem dalje (vsako periodo signala, ne pa vsako vzorèno periodo/interval)
-    if ((v->i != v->i_prev) ||  (first_start == 0))
+    // èe se indeks spremeni, potem gre algoritem dalje
+    // (èe je "SamplingSignal" prepoèasen, ni nujno da se algoritem izvajanja repetitivnega regulatorja
+    // izvede vsako vzorèno periodo/interval, kar pomeni, da ta algoritem lahko deluje s frekvenco
+    // nižjo od vzorènega intervala)
+    if ((v->i != v->i_prev))
     {
-    	if(v->i != v->i_prev)
-    	{
-			// ko je program prviè na tem mestu, dvignemo zastavico
-			first_start = 1;
-    	}
-			
-		/***************************************************/
-		/* circular buffer */
-		/***************************************************/
-		
-        // manipuliranje z indeksi - zaradi circular bufferja
-        if ( (v->i > v->i_prev) || (v->i - v->i_prev == -(v->BufferHistoryLength - 1)) || (first_start == 0) )
+        // manipuliranje z indeksi - zaradi circular bufferja; èe indeks narašèa - inkrementiranje
+        if ( (v->i > v->i_prev) || (v->i - v->i_prev < 0) )
         {
-            // indeks, ki kaže v prihodnost (potrebujem za kompenzacijo zakasnitve)
-            v->index = v->i + v->k;
-            // toèke okoli i (potrebujem za FIR filter)
-            v->i_plus_one = v->i + 1;
-            v->i_minus_one = v->i - 1;
-            v->i_plus_two = v->i + 2;
-            v->i_minus_two = v->i - 2;
-
-            // omejitve zaradi circular bufferja
-            if (v->index > (v->BufferHistoryLength - 1))
-            {
-                v->index = v->index - v->BufferHistoryLength;
-            }
-
-            if (v->i_plus_one > (v->BufferHistoryLength - 1))
-            {
-                v->i_plus_one = v->i_plus_one - v->BufferHistoryLength;
-            }
-
-            if (v->i_plus_two > (v->BufferHistoryLength - 1))
-            {
-                v->i_plus_two = v->i_plus_two - v->BufferHistoryLength;
-            }
-
-            if (v->i_minus_one < 0)
-            {
-                v->i_minus_one = v->i_minus_one + v->BufferHistoryLength;
-            }
-
-            if (v->i_minus_two < 0)
-            {
-                v->i_minus_two = v->i_minus_two + v->BufferHistoryLength;
-            }
+            // manipuliranje z indeksi - zaradi circular bufferja
+            v->index = circular_buffer_transformation(v->i + v->k,v->BufferHistoryLength);
+            v->i_plus_one = circular_buffer_transformation(v->i + 1,v->BufferHistoryLength);
+            v->i_minus_one = circular_buffer_transformation(v->i - 1,v->BufferHistoryLength);
+            v->i_plus_two = circular_buffer_transformation(v->i + 2,v->BufferHistoryLength);
+            v->i_minus_two = circular_buffer_transformation(v->i -2,v->BufferHistoryLength);
 
         } // end of if (v->i > v->i_prev)
+
+        // manipuliranje z indeksi - zaradi circular bufferja; èe indeks pada - dekrementiranje
         else if ( (v->i < v->i_prev) || (v->i - v->i_prev == (v->BufferHistoryLength - 1)) )
         {
-            // indeks, ki kaže v prihodnost (potrebujem za kompenzacijo zakasnitve)
-            v->index = v->i - v->k;
-            // toèke okoli i (potrebujem za FIR filter)
-            v->i_plus_one = v->i - 1;
-            v->i_minus_one = v->i + 1;
-            v->i_plus_two = v->i - 2;
-            v->i_minus_two = v->i + 2;
-
-            // omejitve zaradi circular bufferja
-            if (v->index < 0)
-            {
-                v->index = v->index + v->BufferHistoryLength;
-            }
-
-            if (v->i_plus_one < 0)
-            {
-                v->i_plus_one = v->i_plus_one + v->BufferHistoryLength;
-            }
-
-            if (v->i_plus_two < 0)
-            {
-                v->i_plus_two = v->i_plus_two + v->BufferHistoryLength;
-            }
-
-            if (v->i_minus_one > (v->BufferHistoryLength - 1))
-            {
-                v->i_minus_one = v->i_minus_one - v->BufferHistoryLength;
-            }
-
-            if (v->i_minus_two > (v->BufferHistoryLength - 1))
-            {
-                v->i_minus_two = v->i_minus_two - v->BufferHistoryLength;
-            }
+            // manipuliranje z indeksi - zaradi circular bufferja
+            v->index = circular_buffer_transformation(v->i - v->k,v->BufferHistoryLength);
+            v->i_plus_one = circular_buffer_transformation(v->i - 1,v->BufferHistoryLength);
+            v->i_minus_one = circular_buffer_transformation(v->i + 1,v->BufferHistoryLength);
+            v->i_plus_two = circular_buffer_transformation(v->i - 2,v->BufferHistoryLength);
+            v->i_minus_two = circular_buffer_transformation(v->i + 2,v->BufferHistoryLength);
         } // end of else if (v->i < v->i_prev)
 
 
 
 
-		/***************************************************/
-        /* koda repetitivnega regulatorja */
-		/***************************************************/
+		/***************************************************
+        * koda repetitivnega regulatorja
+		***************************************************/
 		
         // izraèunam trenutni error
         v->Err = v->Ref - v->Fdb;
 
-        // izraèunam novi akumuliran error (indeks i je zaenkrat še i - N, ker še ni prepisan)
+        // izraèunam novi akumuliran error
+        // (pri "ErrSumHistory" na mestu z indeksom i,
+        // je zaenkrat še "ErrSumHistory" iz trenutka i - N
+        // ker še ni prepisan)
         v->ErrSum = v->Krep * v->Err +
                     v->w0 * v->ErrSumHistory[v->i] +
                     v->w1 * v->ErrSumHistory[v->i_plus_one] +
@@ -204,4 +153,43 @@ void REP_REG_CALC (REP_REG_float *v)
 
 
 
-} // konec funkcije
+} // konec funkcije void REP_REG_CALC (REP_REG_float *v)
+
+
+
+
+
+
+
+
+/****************************************************************************************************
+ * Realizacija funkcije krožnega pomnilnika (angl. circular buffer), s katero indeks "index",
+ * ki je lahko veèji od BufferSize-1 oz. manjši od 0 reducira na obmoèje [0,BufferSize-1].
+ * OPOMBA: Na omejeno obmoèje [0,BufferSize-1] lahko funkcija transformira le števila,
+ * ki so absolutno manjša od 10-kratnika velikosti pomnilnika "BufferSize" (glej for zanko)!
+ * For zanka (namesto while) je implementirana zato, da omeji najveèje število iteracij zanke.
+****************************************************************************************************/
+int circular_buffer_transformation(IndexLinearBuffer,BufferSize)
+{
+	int IndexCircularBuffer = IndexLinearBuffer;
+	static int i;
+
+	// omejim stevilo iteracij na 10
+	for(i = 0; i < 10; i++)
+	{
+		if(IndexCircularBuffer > BufferSize - 1)
+		{
+			IndexCircularBuffer = IndexCircularBuffer - BufferSize;
+		}
+		else if(IndexCircularBuffer < 0)
+		{
+			IndexCircularBuffer = IndexCircularBuffer + BufferSize;
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	return(IndexCircularBuffer);
+}

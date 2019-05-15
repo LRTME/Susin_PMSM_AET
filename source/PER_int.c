@@ -17,6 +17,8 @@ volatile enum	CONTROL control = OPEN_LOOP;
 
 volatile enum	{NONE, RES, RES_multiple, REP, DCT} extra_current_reg_type = NONE;
 
+bool			control_enable = FALSE;
+
 bool			enable_extra_current_reg = FALSE;
 
 bool			auto_calc_of_res_reg_params = FALSE;
@@ -212,7 +214,6 @@ bool	direction_change_flag = FALSE;
 
 bool	set_null_position_flag = FALSE;
 bool	reset_null_position_procedure_flag = FALSE;
-bool	control_enable_flag = FALSE;
 
 bool 	incremental_encoder_connected_flag = FALSE;
 
@@ -325,7 +326,7 @@ void interrupt PER_int(void)
 
 
     // buttons
-    if(control_enable_flag == FALSE)
+    if(control_enable == FALSE)
     {
     	// button 2 changes direction of rotation
     	if(b2_press_int == TRUE)
@@ -396,7 +397,7 @@ void interrupt PER_int(void)
     }
 
 	// signalize direction change with LED3 and LED4
-    if(control_enable_flag == FALSE)
+    if(control_enable == FALSE)
     {
     	if(direction_change_flag == TRUE)
     	{
@@ -522,7 +523,7 @@ void interrupt PER_int(void)
     		SVM_disable();
     		PCB_LED2_off();
     		set_null_position_flag = FALSE;
-    		control_enable_flag = FALSE;
+    		control_enable = FALSE;
     		reset_null_position_procedure_flag = TRUE;
     		incremental_encoder_connected_flag = FALSE;
 
@@ -543,17 +544,17 @@ void interrupt PER_int(void)
     		else
     		{
     			// button 1 enables control alghorithm
-    			if(b1_press_int == TRUE && control_enable_flag == FALSE && pot_rel <= 0.5)
+    			if(b1_press_int == TRUE && control_enable == FALSE && pot_rel <= 0.5)
     			{
-    				control_enable_flag = TRUE;
+    				control_enable = TRUE;
     				SVM_enable();
     				SVM_update(0.0, 0.0);
     				PCB_LED2_on();
     			}
-    			else if(b1_press_int == TRUE && control_enable_flag == TRUE)
+    			else if(b1_press_int == TRUE && control_enable == TRUE)
     			{
     				SVM_disable();
-    				control_enable_flag = FALSE;
+    				control_enable = FALSE;
     				PCB_LED2_off();
     			} // end of button 1
     		} // end of null position
@@ -562,7 +563,7 @@ void interrupt PER_int(void)
 
 
     // if all the conditions are met, control alghorithm becomes active
-    if(control_enable_flag == TRUE)
+    if(control_enable == TRUE)
     {
     	control_algorithm();
     }
@@ -1140,7 +1141,7 @@ void control_algorithm(void)
 		break;
 	default:
 		SVM_disable();
-		control_enable_flag = FALSE;
+		control_enable = FALSE;
 		PCB_LED2_off();
 		break;
 	}
@@ -1158,7 +1159,7 @@ void control_algorithm(void)
 		break;
 	default:
 		SVM_disable();
-		control_enable_flag = FALSE;
+		control_enable = FALSE;
 		PCB_LED2_off();
 		break;
 	}
@@ -1367,7 +1368,7 @@ void current_loop_control(void)
 	else
 	{
 		SVM_disable();
-		control_enable_flag = FALSE;
+		control_enable = FALSE;
 		PCB_LED2_off();
 	} // end of else
 
@@ -1382,7 +1383,7 @@ void current_loop_control(void)
 #pragma CODE_SECTION(current_loop_control, "ramfuncs");
 void extra_current_loop_control(void)
 {
-	// tokovna napredna (RES, REP ali DCT) regulacija - d os
+	// tokovna napredna (RES, RES_multiple, REP ali DCT) regulacija - d os
 
 	if(extra_current_reg_type == RES || extra_current_reg_type == RES_multiple)
 	{
@@ -1535,7 +1536,7 @@ void extra_current_loop_control(void)
 
 
 
-	// tokovna napredna (RES, REP ali DCT) regulacija - q os
+	// tokovna napredna (RES, RES_multiple, REP ali DCT) regulacija - q os
 
 	if(extra_current_reg_type == RES || extra_current_reg_type == RES_multiple)
 	{
@@ -1710,6 +1711,8 @@ void extra_current_loop_control(void)
 		case DCT:
 //			extra_id_reg_out = id_DCT_reg.Out;
 //			extra_iq_reg_out = iq_DCT_reg.Out;
+			extra_id_reg_out = 0.0;
+			extra_iq_reg_out = 0.0;
 			break;
 		default:
 			extra_id_reg_out = 0.0;
@@ -1913,7 +1916,7 @@ void trip_reset(void)
 	current_offset_calibrated_flag = TRUE;
 	reset_null_position_procedure_flag = TRUE;
 	
-	control_enable_flag = FALSE;
+	control_enable = FALSE;
 	
 	set_null_position_flag = FALSE;
 	incremental_encoder_connected_flag = FALSE;
@@ -2176,8 +2179,8 @@ void PER_int_setup(void)
     id_REP_reg.w2 = 0.2; // 0.2
     id_REP_reg.ErrSumMax = 0.6;
     id_REP_reg.ErrSumMin = -0.6;
-    id_REP_reg.OutMax = 0.5;
-    id_REP_reg.OutMin = -0.5;
+    id_REP_reg.OutMax = 0.1;
+    id_REP_reg.OutMin = -0.1;
 
     REP_REG_INIT_MACRO(iq_REP_reg);
     iq_REP_reg.BufferHistoryLength = id_REP_reg.BufferHistoryLength; // 400 = 20kHz/50 Hz
