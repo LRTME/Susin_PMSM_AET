@@ -75,11 +75,11 @@ void REP_REG_CALC (REP_REG_float *v)
     // èe se indeks spremeni, potem gre algoritem dalje
     // (èe je "SamplingSignal" prepoèasen, ni nujno da se algoritem izvajanja repetitivnega regulatorja
     // izvede vsako vzorèno periodo/interval, kar pomeni, da ta algoritem lahko deluje s frekvenco
-    // nižjo od vzorènega intervala)
+    // nižjo od vzorène frekvence)
     if ((v->i != v->i_prev))
     {
         // manipuliranje z indeksi - zaradi circular bufferja; èe indeks narašèa - inkrementiranje
-        if ( (v->i > v->i_prev) || (v->i - v->i_prev < 0) )
+        if ( (v->i > v->i_prev) || ((v->i < v->i_prev) && (v->i - v->i_prev < 0)) )
         {
             // manipuliranje z indeksi - zaradi circular bufferja
             v->index = circular_buffer_transformation(v->i + v->k,v->BufferHistoryLength);
@@ -91,7 +91,7 @@ void REP_REG_CALC (REP_REG_float *v)
         } // end of if (v->i > v->i_prev)
 
         // manipuliranje z indeksi - zaradi circular bufferja; èe indeks pada - dekrementiranje
-        else if ( (v->i < v->i_prev) || (v->i - v->i_prev == (v->BufferHistoryLength - 1)) )
+        else if ( (v->i < v->i_prev) || ((v->i > v->i_prev) && (v->i - v->i_prev > 0)) )
         {
             // manipuliranje z indeksi - zaradi circular bufferja
             v->index = circular_buffer_transformation(v->i - v->k,v->BufferHistoryLength);
@@ -163,7 +163,7 @@ void REP_REG_CALC (REP_REG_float *v)
 
 
 /****************************************************************************************************
- * Realizacija funkcije krožnega pomnilnika (angl. circular buffer), s katero indeks "index",
+ * Realizacija funkcije krožnega pomnilnika (angl. circular buffer), s katero "index",
  * ki je lahko veèji od BufferSize-1 oz. manjši od 0 reducira na obmoèje [0,BufferSize-1].
  * OPOMBA: Na omejeno obmoèje [0,BufferSize-1] lahko funkcija transformira le števila,
  * ki so absolutno manjša od 10-kratnika velikosti pomnilnika "BufferSize" (glej for zanko)!
