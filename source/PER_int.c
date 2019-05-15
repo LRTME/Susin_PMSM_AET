@@ -1384,7 +1384,7 @@ void extra_current_loop_control(void)
 {
 	// tokovna napredna (RES, REP ali DCT) regulacija - d os
 
-	if(extra_current_reg_type == RES)
+	if(extra_current_reg_type == RES || extra_current_reg_type == RES_multiple)
 	{
 		// avtomatski izraèun parametrov RES reg.: ojaèanj in kompenzacije zamika
 		if(auto_calc_of_res_reg_params == TRUE)
@@ -1537,7 +1537,7 @@ void extra_current_loop_control(void)
 
 	// tokovna napredna (RES, REP ali DCT) regulacija - q os
 
-	if(extra_current_reg_type == RES)
+	if(extra_current_reg_type == RES || extra_current_reg_type == RES_multiple)
 	{
 		// avtomatski izraèun parametrov RES reg: ojaèanj in kompenzacije zamika
 		if(auto_calc_of_res_reg_params == TRUE)
