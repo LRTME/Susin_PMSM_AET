@@ -27,7 +27,10 @@ int circular_buffer_transformation(int IndexLinearBuffer, int BufferSize);
 
 
 /****************************************************************************************************
-* Funkcija, ki izvede algoritem repetitivnega regulatorja
+* Funkcija, ki izvede algoritem repetitivnega regulatorja.
+* Zelo zaželeno je, da je razmerje med vzorèno frekvenco in osnovno frekvenco reguliranega signala
+* enako velikosti pomnilnika "BufferHistoryLength" (in veèje od 20), saj je regulator na to obèutljiv,
+* kar lahko privede do nezanemarljivega pogreška v stacionarnem stanju.
 ****************************************************************************************************/
 #pragma CODE_SECTION(REP_REG_CALC, "ramfuncs");
 void REP_REG_CALC (REP_REG_float *v)
@@ -44,9 +47,9 @@ void REP_REG_CALC (REP_REG_float *v)
     {
         v->BufferHistoryLength = MAX_LENGTH_REP_REG_BUFFER;
     }
-    else if (v->BufferHistoryLength < 1)
+    else if (v->BufferHistoryLength < MIN_LENGTH_REP_REG_BUFFER)
     {
-        v->BufferHistoryLength = 1;
+        v->BufferHistoryLength = MIN_LENGTH_REP_REG_BUFFER;
     }
 	
 	// omejitev kompenzacije zakasnitve, ki ne sme presegati dolžine bufferja
@@ -59,7 +62,8 @@ void REP_REG_CALC (REP_REG_float *v)
         v->k = 0;
     }
 
-    // omejitev vzorènega signala med 0.0 in 0.9999 (SamplingSignal ne sme biti enak ena, ker mora biti indeks i omejen od 0 do BufferHistoryLength-1)
+    // omejitev vzorènega signala med 0.0 in 0.9999
+    //(SamplingSignal ne sme biti enak ena, ker mora biti indeks i omejen od 0 do BufferHistoryLength-1)
     v->SamplingSignal = (v->SamplingSignal > 0.99999)? 0.99999: v->SamplingSignal;
     v->SamplingSignal = (v->SamplingSignal < 0.0)? 0.0: v->SamplingSignal;
 
@@ -72,34 +76,42 @@ void REP_REG_CALC (REP_REG_float *v)
 
 
 
-    // èe se indeks spremeni, potem gre algoritem dalje
-    // (èe je "SamplingSignal" prepoèasen, ni nujno da se algoritem izvajanja repetitivnega regulatorja
-    // izvede vsako vzorèno periodo/interval, kar pomeni, da ta algoritem lahko deluje s frekvenco
-    // nižjo od vzorène frekvence)
+    // èe se indeks spremeni, potem gre algoritem dalje:
+    //   1. èe je "SamplingSignal" zunaj te funkcije natanèno sinhroniziran z vzorèno frekvenco ("i_delta" = 1)
+    //      se algoritem izvajanja repetitivnega regulatorja izvede vsako vzorèno periodo/interval in se
+    //      izkoristi celotna velikost pomnilnika, kar je optimalno
+    //   2. èe je "SamplingSignal" prepoèasen ("i_delta" < 1) oz. osnovna frekvenca reguliranega signala prenizka,
+    //      ni nujno, da se algoritem izvajanja repetitivnega regulatorja izvede vsako vzorèno periodo/interval,
+    //      kar pomeni, da ta algoritem lahko deluje s frekvenco nižjo od vzorène frekvence
+    //   3. èe je "SamplingSignal" prehiter ("i_delta" > 1), oz. osnovna frekvenca reguliranega signala previsoka,
+    //      se algoritem izvajanja repetitivnega regulatorja izvede vsako vzorèno periodo/interval,
+    //      a se velikost pomnilnika umetno zmanjša za faktor "i_delta", saj zapisujemo in beremo le vsak "i_delta"-ti vzorec,
+    //      kar pomeni, kot da bi bila velikost pomnilnika manjša za faktor "i_delta"
     if ((v->i != v->i_prev))
     {
-        // manipuliranje z indeksi - zaradi circular bufferja; èe indeks narašèa - inkrementiranje
-        if ( (v->i > v->i_prev) || ((v->i < v->i_prev) && (v->i - v->i_prev < 0)) )
-        {
-            // manipuliranje z indeksi - zaradi circular bufferja
-            v->index = circular_buffer_transformation(v->i + v->k,v->BufferHistoryLength);
-            v->i_plus_one = circular_buffer_transformation(v->i + 1,v->BufferHistoryLength);
-            v->i_minus_one = circular_buffer_transformation(v->i - 1,v->BufferHistoryLength);
-            v->i_plus_two = circular_buffer_transformation(v->i + 2,v->BufferHistoryLength);
-            v->i_minus_two = circular_buffer_transformation(v->i -2,v->BufferHistoryLength);
+    	// izraèun razlike med trenutnim indeksom "i" in prejšnjim indeksom "i_prev"
+    	// (èe je "SamplingSignal" prehiter, lahko velikost pomnilnika
+    	// umetno zmanjšamo za faktor "i_delta", saj zapisujemo in beremo le vsak "i_delta"-ti vzorec,
+    	// ki pa ne sme in ne more presegati polovico velikosti pomnilnika)
+    	v->i_delta = v->i - v->i_prev;
 
-        } // end of if (v->i > v->i_prev)
+    	// manipuliranje z indeksi - zaradi circular bufferja; èe indeks narašèa - inkrementiranje
+    	if ( (v->i < v->i_prev) && (v->i_delta < (v->BufferHistoryLength >> 1)) )
+    	{
+    		v->i_delta = v->BufferHistoryLength - v->i_delta;
+    	}
+    	// manipuliranje z indeksi - zaradi circular bufferja; èe indeks pada - dekrementiranje
+    	else if ( (v->i > v->i_prev) && (v->i_delta > (v->BufferHistoryLength >> 1)) )
+    	{
+    		v->i_delta = -(v->BufferHistoryLength - v->i_delta);
+    	}
 
-        // manipuliranje z indeksi - zaradi circular bufferja; èe indeks pada - dekrementiranje
-        else if ( (v->i < v->i_prev) || ((v->i > v->i_prev) && (v->i - v->i_prev > 0)) )
-        {
-            // manipuliranje z indeksi - zaradi circular bufferja
-            v->index = circular_buffer_transformation(v->i - v->k,v->BufferHistoryLength);
-            v->i_plus_one = circular_buffer_transformation(v->i - 1,v->BufferHistoryLength);
-            v->i_minus_one = circular_buffer_transformation(v->i + 1,v->BufferHistoryLength);
-            v->i_plus_two = circular_buffer_transformation(v->i - 2,v->BufferHistoryLength);
-            v->i_minus_two = circular_buffer_transformation(v->i + 2,v->BufferHistoryLength);
-        } // end of else if (v->i < v->i_prev)
+		// manipuliranje z indeksi - zaradi circular bufferja
+		v->index = circular_buffer_transformation(v->i + v->k*v->i_delta,v->BufferHistoryLength);
+		v->i_plus_one = circular_buffer_transformation(v->i + 1*v->i_delta,v->BufferHistoryLength);
+		v->i_minus_one = circular_buffer_transformation(v->i - 1*v->i_delta,v->BufferHistoryLength);
+		v->i_plus_two = circular_buffer_transformation(v->i + 2*v->i_delta,v->BufferHistoryLength);
+		v->i_minus_two = circular_buffer_transformation(v->i - 2*v->i_delta,v->BufferHistoryLength);
 
 
 

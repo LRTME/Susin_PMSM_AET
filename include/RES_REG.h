@@ -7,10 +7,10 @@
 *
 * CHANGES :
 * VERSION   DATE        WHO             DETAIL
-* 1.0       6.4.2016	Denis Sušin      Initial version
-* 2.0		29.3.2018	Denis Sušin      Phase lag compensation added, feedforward removed
-* 3.0		3.1.2019	Denis Sušin		 Added limitation of integral parts
-
+* 1.0       6.4.2016	Denis Sušin     Initial version
+* 2.0		29.3.2018	Denis Sušin     Phase lag compensation added, feedforward removed
+* 3.0		3.1.2019	Denis Sušin     Added limitation of integral parts
+* 3.1		15.5.2019   Denis Sušin     Added some comments
 ****************************************************************/
 
 #ifndef __RES_REG_H__
@@ -67,6 +67,15 @@ typedef struct RES_REG_FLOAT_STRUCT
 	0.0,     					\
 }
 
+
+
+
+/****************************************************************************************************
+* Makro, ki izvede algoritem resonanènega regulatorja.
+* Zelo zaželeno je, da je razmerje med vzorèno frekvenco in osnovno frekvenco reguliranega signala
+* enako celemu številu (in veèjemu od 20), saj je regulator na to obèutljiv,
+* kar lahko privede do nezanemarljivega pogreška v stacionarnem stanju.
+****************************************************************************************************/
 #define RES_REG_CALC(v)                            									\
 {                                                   								\
 	if (v.Angle > 1.0)																\
