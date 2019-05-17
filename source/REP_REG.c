@@ -9,7 +9,8 @@
 * VERSION   DATE        WHO             DETAIL
 * 1.0       6.4.2016   Denis Sušin      Initial version
 * 1.1		21.8.2017  Denis Sušin		Corrections of comments and names of variables
-* 2.0		15.5.2019  Denis Sušin		Circular buffer compacted into function
+* 2.0		15.5.2019  Denis Sušin		Circular buffer compacted into function and
+* 										circular buffer indexes handling upgraded
 ****************************************************************/
 
 #include "REP_REG.h"
@@ -106,6 +107,10 @@ void REP_REG_CALC (REP_REG_float *v)
     		v->i_delta = -(v->BufferHistoryLength - v->i_delta);
     	}
 
+
+    	// èe funkcionalnost umetnega zmanjševanja velikosti pomnilnika ni zaelena ali ni potrebna (opis pod toèko 3.),
+    	// odkomentiraj naslednjo vrstico
+//    	v->i_delta = 1;
 
 
 
