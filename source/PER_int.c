@@ -1457,14 +1457,15 @@ void advanced_current_loop_control(void)
 			}
 
 			// avtomatski izraèun kompenzacije zamika za vse RES reg.
-			//id_RES_reg_1.PhaseCompDeg = atan2(2*PI*POLE_PAIRS*(id_RES_reg_1.Harmonic-1)*speed_meh_CAP*Ld,Rs)*180/PI;
-			id_RES_reg_1.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
-			id_RES_reg_2.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
-			id_RES_reg_3.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
-			id_RES_reg_4.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
-			id_RES_reg_5.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
-			id_RES_reg_6.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			// v praksi ne deluje
+			// id_RES_reg_1.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			// id_RES_reg_2.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			// id_RES_reg_3.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			// id_RES_reg_4.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			// id_RES_reg_5.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			// id_RES_reg_6.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
 
+			// v praksi deluje
 			id_RES_reg_1.PhaseCompDeg = atan2(2*PI*(id_RES_reg_1.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
 			id_RES_reg_2.PhaseCompDeg = atan2(2*PI*(id_RES_reg_2.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
 			id_RES_reg_3.PhaseCompDeg = atan2(2*PI*(id_RES_reg_3.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
@@ -1523,7 +1524,10 @@ void advanced_current_loop_control(void)
 	{
 		if(auto_calc_of_advanced_reg_params == TRUE)
 		{
+			// v praksi ne deluje
 			// id_REP_reg.k = phase_lag_comp_calc(POLE_PAIRS*speed_meh_CAP)/180.0 * id_REP_reg.BufferHistoryLength;
+
+			// v praksi deluje
 			id_REP_reg.k = atan2(2*PI*speed_meh_CAP*Ld,Rs)/(2*PI)*id_REP_reg.BufferHistoryLength;
 		}
 
@@ -1624,14 +1628,16 @@ void advanced_current_loop_control(void)
 			}
 
 			// avtomatski izraèun kompenzacije zamika
-			//iq_RES_reg_1.PhaseCompDeg = atan2(2*PI*POLE_PAIRS*(iq_RES_reg_1.Harmonic-1)*speed_meh_CAP*Lq,Rs)*180/PI;
-			iq_RES_reg_1.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
-			iq_RES_reg_2.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
-			iq_RES_reg_3.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
-			iq_RES_reg_4.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
-			iq_RES_reg_5.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
-			iq_RES_reg_6.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
 
+			// v praksi ne deluje
+			// iq_RES_reg_1.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			// iq_RES_reg_2.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			// iq_RES_reg_3.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			// iq_RES_reg_4.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			// iq_RES_reg_5.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			// iq_RES_reg_6.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+
+			// v praksi deluje
 			iq_RES_reg_1.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_1.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
 			iq_RES_reg_2.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_2.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
 			iq_RES_reg_3.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_3.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
@@ -1690,7 +1696,10 @@ void advanced_current_loop_control(void)
 	{
 		if(auto_calc_of_advanced_reg_params == TRUE)
 		{
-			// iq_REP_reg.k = phase_lag_comp_calc(POLE_PAIRS*speed_meh_CAP)/180.0 * iq_REP_reg.BufferHistoryLength;
+			// v praksi ne deluje
+			// iq_REP_reg.k = phase_lag_comp_calc(POLE_PAIRS*speed_meh_CAP)/180.0 * iq_REP_reg.BufferHistoryLength; // ne deluje v praksi
+
+			// v praksi deluje
 			iq_REP_reg.k = atan2(2*PI*speed_meh_CAP*Lq,Rs)/(2*PI)*iq_REP_reg.BufferHistoryLength;
 		}
 

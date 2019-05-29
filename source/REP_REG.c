@@ -58,9 +58,9 @@ void REP_REG_CALC (REP_REG_float *v)
     {
         v->k = v->BufferHistoryLength;
     }
-    else if (v->k < 0)
+    else if (v->k < -v->BufferHistoryLength)
     {
-        v->k = 0;
+        v->k = -v->BufferHistoryLength;
     }
 
     // omejitev vzorènega signala med 0.0 in 0.9999
