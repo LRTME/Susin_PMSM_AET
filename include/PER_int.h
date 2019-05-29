@@ -39,11 +39,6 @@
 
 #include    "TRIP_overcurrent.h"
 
-/**************************************************************
-* Function which initializes all required for execution of
-* interrupt function
-**************************************************************/
-extern void PER_int_setup(void);
 
 /**************************************************************
 * Function, where mechanical measurements is handled:
@@ -96,7 +91,8 @@ extern void current_loop_control(void);
 
 /**************************************************************
 * Function for advanced current loop control,
-* where additional current controller in parallel with PI controller is added
+* where additional current controller in parallel with
+* PI controller is added
 **************************************************************/
 extern void extra_current_loop_control(void);
 
@@ -111,13 +107,33 @@ extern void speed_loop_control(void);
 extern void position_loop_control(void);
 
 /**************************************************************
-* Function, which clears integral parts and outputs of controllers
+* Function, which resets control alghorithm after trip
+**************************************************************/
+extern void trip_reset(void);
+
+/**************************************************************
+* Function, which clears integral parts and outputs of
+* controllers
 **************************************************************/
 extern void clear_controllers(void);
 
 /**************************************************************
-* Function, which resets control alghorithm after trip
+* Function, which clears integral parts and outputs of
+* advaced current controllers
 **************************************************************/
-extern void trip_reset(void);
+extern void clear_advanced_controllers(void);
+
+/**************************************************************
+* Function, which calculates systems (L filter) phase delay,
+* obtained from sweep test and aproximated with a polynomial and
+* returns phase delay compensation in degrees [°]
+**************************************************************/
+float	phase_lag_comp_calc(float phase_leg_freq);
+
+/**************************************************************
+* Function which initializes all required for execution of
+* interrupt function
+**************************************************************/
+extern void PER_int_setup(void);
 
 #endif // end of __PER_INT_H__ definition

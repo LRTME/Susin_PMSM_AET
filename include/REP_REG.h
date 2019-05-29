@@ -17,7 +17,7 @@
 // minimal length of buffer for saving history of accumulated error (minimalno 20)
 #define     MIN_LENGTH_REP_REG_BUFFER   20
 // maximal length of buffer for saving history of accumulated error
-#define     MAX_LENGTH_REP_REG_BUFFER   400
+#define     MAX_LENGTH_REP_REG_BUFFER   1000
 
 
 typedef struct REP_REG_FLOAT_STRUCT
@@ -86,8 +86,9 @@ typedef struct REP_REG_FLOAT_STRUCT
     {                                                   	\
         v.ErrSumHistory[v.i] = 0.0;                   		\
     }                                                   	\
+	/* v.i and v.i_prev must not be equal at the start */   \
     v.i = 0;                                            	\
-    v.i_prev = MAX_LENGTH_REP_REG_BUFFER;                   \
+    v.i_prev = -1;						 					\
 }
 
 

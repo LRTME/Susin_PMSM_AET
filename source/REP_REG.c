@@ -88,6 +88,7 @@ void REP_REG_CALC (REP_REG_float *v)
     //      se algoritem izvajanja repetitivnega regulatorja izvede vsako vzorèno periodo/interval,
     //      a se velikost pomnilnika umetno zmanjša za faktor "i_delta", saj zapisujemo in beremo le vsak "i_delta"-ti vzorec,
     //      kar pomeni, kot da bi bila velikost pomnilnika manjša za faktor "i_delta"
+    //      OPOMBA: To zadnjo funkcionalnost je mono izklopiti z odkomentiranjem vrstice "v->i_delta = 1;"!
     if ((v->i != v->i_prev))
     {
     	// izraèun razlike med trenutnim indeksom "i" in prejšnjim indeksom "i_prev"
@@ -110,7 +111,7 @@ void REP_REG_CALC (REP_REG_float *v)
 
     	// èe funkcionalnost umetnega zmanjševanja velikosti pomnilnika ni zaelena ali ni potrebna (opis pod toèko 3.),
     	// odkomentiraj naslednjo vrstico
-//    	v->i_delta = 1;
+    	v->i_delta = 1;
 
 
 

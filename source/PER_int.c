@@ -8,20 +8,19 @@
 #include    "TIC_toc.h"
 #include    "TIC_toc_1.h"
 
-
 /**************************************************************************
  * User interface - variables that can be changed during operation by user
 **************************************************************************/
 volatile enum	MODULATION modulation = SVM;
 volatile enum	CONTROL control = OPEN_LOOP;
 
-volatile enum	{NONE, RES, RES_multiple, REP, DCT} extra_current_reg_type = NONE;
+volatile enum	{NONE, RES, RES_multiple, REP, DCT} advanced_current_reg_type = NONE;
 
 bool			control_enable = FALSE;
 
-bool			enable_extra_current_reg = FALSE;
+bool			enable_advanced_current_reg = FALSE;
 
-bool			auto_calc_of_res_reg_params = FALSE;
+bool			auto_calc_of_advanced_reg_params = FALSE;
 
 /**************************************************************************
  * End of user interface
@@ -132,8 +131,8 @@ PI_ctrl			id_PI_reg = PI_CTRL_DEFAULTS;
 PI_ctrl			iq_PI_reg = PI_CTRL_DEFAULTS;
 PI_ctrl			speed_PI_reg = PI_CTRL_DEFAULTS;
 PID_ctrl		position_PID_reg = PI_CTRL_DEFAULTS;
-float			extra_id_reg_out = 0.0;
-float			extra_iq_reg_out = 0.0;
+float			advanced_id_reg_out = 0.0;
+float			advanced_iq_reg_out = 0.0;
 
 // current PI controller
 float   Kp_id_PI_reg = 0.015;    	  		// Vdc = 12V: 0.03            	Vdc = 24V: 0.015
@@ -162,16 +161,18 @@ float			cas_izracuna_RES_multiple_reg = 0.0;
 // automatic calculation of RES current controller parameters
 float			freq_critical = 0.0;
 float			factor_res_reg_gain = 0.0;
-float			factor_additional_res_reg = 1.0;
+float			factor_res_reg_gain_additional = 1.0;
 
 // advanced current repetitive (REP) controllers
 REP_REG_float	id_REP_reg = REP_REG_FLOAT_DEFAULTS;
 REP_REG_float	iq_REP_reg = REP_REG_FLOAT_DEFAULTS;
+int 			clear_REP_buffer_index = 0;
 float			cas_izracuna_REP_reg = 0.0;
 
 // advanced current discrete cosinus transform (DCT) controller
 //DCT_REG_float	id_DCT_reg = DCT_REG_FLOAT_DEFAULTS;
 //DCT_REG_float	iq_DCT_reg = DCT_REG_FLOAT_DEFAULTS;
+int 			clear_DCT_buffer_index = 0;
 float			cas_izracuna_DCT_reg = 0.0;
 
 // speed PI controller
@@ -260,11 +261,13 @@ void 	software_protection(void);
 void	control_algorithm(void);
 void	open_loop_control(void);
 void	current_loop_control(void);
-void	extra_current_loop_control(void);
+void	advanced_current_loop_control(void);
 void	speed_loop_control(void);
 void	position_loop_control(void);
 void	trip_reset(void);
 void 	clear_controllers(void);
+void 	clear_advanced_controllers(void);
+float	phase_lag_comp_calc(float phase_lag_freq);
 
 /**************************************************************
 * interrupt funcion
@@ -599,9 +602,6 @@ void interrupt PER_int(void)
 
 //    temp1 = cos(2*PI*((float)interrupt_cnt/SAMPLE_FREQ));
 //    temp2 = sin(2*PI*((float)interrupt_cnt/SAMPLE_FREQ));
-
-
-
 
     /* End of 3 phase inverter control alghorithm */
 
@@ -1337,20 +1337,21 @@ void current_loop_control(void)
 
 
 		// dodatna napredna tokovna regulacija (uporaba RES, REP ali DCT regulatorjev)
-		if(extra_current_reg_type != NONE)
+		if(advanced_current_reg_type != NONE)
 		{
-			extra_current_loop_control();
+			advanced_current_loop_control();
 		}
 		else
 		{
-			extra_id_reg_out = 0.0;
-			extra_iq_reg_out = 0.0;
+			advanced_id_reg_out = 0.0;
+			advanced_iq_reg_out = 0.0;
+			clear_advanced_controllers();
 		}
 
 
 		// upostevanje morebitnih dodatnih naprednih tokovnih regulatorjev
-		nap_d_ref = id_PI_reg.Out + extra_id_reg_out;
-		nap_q_ref = iq_PI_reg.Out + extra_iq_reg_out;
+		nap_d_ref = id_PI_reg.Out + advanced_id_reg_out;
+		nap_q_ref = iq_PI_reg.Out + advanced_iq_reg_out;
 
 
 
@@ -1381,74 +1382,74 @@ void current_loop_control(void)
 * Function for current loop control
 **************************************************************/
 #pragma CODE_SECTION(current_loop_control, "ramfuncs");
-void extra_current_loop_control(void)
+void advanced_current_loop_control(void)
 {
 	// tokovna napredna (RES, RES_multiple, REP ali DCT) regulacija - d os
 
-	if(extra_current_reg_type == RES || extra_current_reg_type == RES_multiple)
+	if(advanced_current_reg_type == RES || advanced_current_reg_type == RES_multiple)
 	{
 		// avtomatski izraèun parametrov RES reg.: ojaèanj in kompenzacije zamika
-		if(auto_calc_of_res_reg_params == TRUE)
+		if(auto_calc_of_advanced_reg_params == TRUE)
 		{
 			// avtomatski izraèun ojaèanj
 			freq_critical = 1.0/(2.0*PI) * SAMPLE_FREQ * 1.0/(2.0*1.5*sqrt(1 + (1.5/SAMPLE_FREQ)*(1.5/SAMPLE_FREQ))); // izraèun velja samo, èe je PI reg. parametriran po optimumu iznosa
 			freq_critical = 1.0/(2.0*PI) * nap_dc/Rs * id_PI_reg.Ki * SAMPLE_FREQ * 1.0/(sqrt(1 + (1.5/SAMPLE_FREQ)*(1.5/SAMPLE_FREQ)));
 
 			// avtomatski izracun ojacanj za RES reg. 1
-			factor_res_reg_gain = 1 - (id_RES_reg_1.Harmonic*POLE_PAIRS*fabs(speed_meh_ABF)/freq_critical)*(POLE_PAIRS*id_RES_reg_1.Harmonic*fabs(speed_meh_ABF)/freq_critical);
+			factor_res_reg_gain = 1 - (id_RES_reg_1.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*id_RES_reg_1.Harmonic*fabs(speed_meh_CAP)/freq_critical);
 			if(factor_res_reg_gain > 0.0)
 			{
-				id_RES_reg_1.Kres = factor_additional_res_reg*factor_res_reg_gain*id_PI_reg.Ki;
+				id_RES_reg_1.Kres = factor_res_reg_gain_additional*factor_res_reg_gain*id_PI_reg.Ki;
 			}
 			else
 			{
 				id_RES_reg_1.Kres = 0.0;
 			}
 			// avtomatski izracun ojacanj za RES reg. 2
-			factor_res_reg_gain = 1 - (id_RES_reg_2.Harmonic*POLE_PAIRS*fabs(speed_meh_ABF)/freq_critical)*(POLE_PAIRS*id_RES_reg_2.Harmonic*fabs(speed_meh_ABF)/freq_critical);
+			factor_res_reg_gain = 1 - (id_RES_reg_2.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*id_RES_reg_2.Harmonic*fabs(speed_meh_CAP)/freq_critical);
 			if(factor_res_reg_gain > 0.0)
 			{
-				id_RES_reg_2.Kres = factor_additional_res_reg*factor_res_reg_gain*id_PI_reg.Ki;
+				id_RES_reg_2.Kres = factor_res_reg_gain_additional*factor_res_reg_gain*id_PI_reg.Ki;
 			}
 			else
 			{
 				id_RES_reg_2.Kres = 0.0;
 			}
 			// avtomatski izracun ojacanj za RES reg. 3
-			factor_res_reg_gain = 1 - (id_RES_reg_3.Harmonic*POLE_PAIRS*fabs(speed_meh_ABF)/freq_critical)*(POLE_PAIRS*id_RES_reg_3.Harmonic*fabs(speed_meh_ABF)/freq_critical);
+			factor_res_reg_gain = 1 - (id_RES_reg_3.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*id_RES_reg_3.Harmonic*fabs(speed_meh_CAP)/freq_critical);
 			if(factor_res_reg_gain > 0.0)
 			{
-				id_RES_reg_3.Kres = factor_additional_res_reg*factor_res_reg_gain*id_PI_reg.Ki;
+				id_RES_reg_3.Kres = factor_res_reg_gain_additional*factor_res_reg_gain*id_PI_reg.Ki;
 			}
 			else
 			{
 				id_RES_reg_3.Kres = 0.0;
 			}
 			// avtomatski izracun ojacanj za RES reg. 4
-			factor_res_reg_gain = 1 - (id_RES_reg_4.Harmonic*POLE_PAIRS*fabs(speed_meh_ABF)/freq_critical)*(POLE_PAIRS*id_RES_reg_4.Harmonic*fabs(speed_meh_ABF)/freq_critical);
+			factor_res_reg_gain = 1 - (id_RES_reg_4.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*id_RES_reg_4.Harmonic*fabs(speed_meh_CAP)/freq_critical);
 			if(factor_res_reg_gain > 0.0)
 			{
-				id_RES_reg_4.Kres = factor_additional_res_reg*factor_res_reg_gain*id_PI_reg.Ki;
+				id_RES_reg_4.Kres = factor_res_reg_gain_additional*factor_res_reg_gain*id_PI_reg.Ki;
 			}
 			else
 			{
 				id_RES_reg_4.Kres = 0.0;
 			}
 			// avtomatski izracun ojacanj za RES reg. 5
-			factor_res_reg_gain = 1 - (id_RES_reg_5.Harmonic*POLE_PAIRS*fabs(speed_meh_ABF)/freq_critical)*(POLE_PAIRS*id_RES_reg_5.Harmonic*fabs(speed_meh_ABF)/freq_critical);
+			factor_res_reg_gain = 1 - (id_RES_reg_5.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*id_RES_reg_5.Harmonic*fabs(speed_meh_CAP)/freq_critical);
 			if(factor_res_reg_gain > 0.0)
 			{
-				id_RES_reg_5.Kres = factor_additional_res_reg*factor_res_reg_gain*id_PI_reg.Ki;
+				id_RES_reg_5.Kres = factor_res_reg_gain_additional*factor_res_reg_gain*id_PI_reg.Ki;
 			}
 			else
 			{
 				id_RES_reg_5.Kres = 0.0;
 			}
 			// avtomatski izracun ojacanj za RES reg.
-			factor_res_reg_gain = 1 - (id_RES_reg_6.Harmonic*POLE_PAIRS*fabs(speed_meh_ABF)/freq_critical)*(POLE_PAIRS*id_RES_reg_6.Harmonic*fabs(speed_meh_ABF)/freq_critical);
+			factor_res_reg_gain = 1 - (id_RES_reg_6.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*id_RES_reg_6.Harmonic*fabs(speed_meh_CAP)/freq_critical);
 			if(factor_res_reg_gain > 0.0)
 			{
-				id_RES_reg_6.Kres = factor_additional_res_reg*factor_res_reg_gain*id_PI_reg.Ki;
+				id_RES_reg_6.Kres = factor_res_reg_gain_additional*factor_res_reg_gain*id_PI_reg.Ki;
 			}
 			else
 			{
@@ -1456,13 +1457,22 @@ void extra_current_loop_control(void)
 			}
 
 			// avtomatski izraèun kompenzacije zamika za vse RES reg.
+			//id_RES_reg_1.PhaseCompDeg = atan2(2*PI*POLE_PAIRS*(id_RES_reg_1.Harmonic-1)*speed_meh_CAP*Ld,Rs)*180/PI;
+			id_RES_reg_1.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			id_RES_reg_2.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			id_RES_reg_3.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			id_RES_reg_4.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			id_RES_reg_5.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			id_RES_reg_6.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+
 			id_RES_reg_1.PhaseCompDeg = atan2(2*PI*(id_RES_reg_1.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
 			id_RES_reg_2.PhaseCompDeg = atan2(2*PI*(id_RES_reg_2.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
 			id_RES_reg_3.PhaseCompDeg = atan2(2*PI*(id_RES_reg_3.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
 			id_RES_reg_4.PhaseCompDeg = atan2(2*PI*(id_RES_reg_4.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
 			id_RES_reg_5.PhaseCompDeg = atan2(2*PI*(id_RES_reg_5.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
 			id_RES_reg_6.PhaseCompDeg = atan2(2*PI*(id_RES_reg_6.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
-		} // end of if(auto_calc_of_res_reg_params == TRUE)
+
+		} // end of if(auto_calc_of_advanced_reg_params == TRUE)
 
 
 
@@ -1508,9 +1518,15 @@ void extra_current_loop_control(void)
 		cas_izracuna_RES_multiple_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
 		cas_izracuna_RES_reg = cas_izracuna_RES_multiple_reg/6.0;
 
-	} // end of if(extra_current_reg_type == RES)
-	else if(extra_current_reg_type == REP)
+	} // end of if(advanced_current_reg_type == RES)
+	else if(advanced_current_reg_type == REP)
 	{
+		if(auto_calc_of_advanced_reg_params == TRUE)
+		{
+			// id_REP_reg.k = phase_lag_comp_calc(POLE_PAIRS*speed_meh_CAP)/180.0 * id_REP_reg.BufferHistoryLength;
+			id_REP_reg.k = atan2(2*PI*speed_meh_CAP*Ld,Rs)/(2*PI)*id_REP_reg.BufferHistoryLength;
+		}
+
 		// izracun REP reg. - d os
 		id_REP_reg.Ref = tok_d_ref;
 		id_REP_reg.Fdb = tok_d;
@@ -1523,11 +1539,11 @@ void extra_current_loop_control(void)
 		TIC_stop_1();
 		cas_izracuna_REP_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
 
-	}// end of else if(extra_current_reg_type == REP)
-	else if(extra_current_reg_type == DCT)
+	}// end of else if(advanced_current_reg_type == REP)
+	else if(advanced_current_reg_type == DCT)
 	{
 
-	}// end of else if(extra_current_reg_type == DCT)
+	}// end of else if(advanced_current_reg_type == DCT)
 
 
 
@@ -1538,69 +1554,69 @@ void extra_current_loop_control(void)
 
 	// tokovna napredna (RES, RES_multiple, REP ali DCT) regulacija - q os
 
-	if(extra_current_reg_type == RES || extra_current_reg_type == RES_multiple)
+	if(advanced_current_reg_type == RES || advanced_current_reg_type == RES_multiple)
 	{
 		// avtomatski izraèun parametrov RES reg: ojaèanj in kompenzacije zamika
-		if(auto_calc_of_res_reg_params == TRUE)
+		if(auto_calc_of_advanced_reg_params == TRUE)
 		{
 			// avtomatski izraèun ojaèanj
 			freq_critical = 1.0/(2.0*PI) * SAMPLE_FREQ * 1.0/(2.0*1.5*sqrt(1 + (1.5/SAMPLE_FREQ)*(1.5/SAMPLE_FREQ))); // izraèun velja samo, èe je PI reg. parametriran po optimumu iznosa
 			freq_critical = 1.0/(2.0*PI) * nap_dc/Rs * iq_PI_reg.Ki * SAMPLE_FREQ * 1.0/(sqrt(1 + (1.5/SAMPLE_FREQ)*(1.5/SAMPLE_FREQ)));
 
-			factor_res_reg_gain = 1 - (iq_RES_reg_1.Harmonic*POLE_PAIRS*fabs(speed_meh_ABF)/freq_critical)*(POLE_PAIRS*iq_RES_reg_1.Harmonic*fabs(speed_meh_ABF)/freq_critical);
+			factor_res_reg_gain = 1 - (iq_RES_reg_1.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*iq_RES_reg_1.Harmonic*fabs(speed_meh_CAP)/freq_critical);
 			if(factor_res_reg_gain > 0.0)
 			{
-				iq_RES_reg_1.Kres = factor_additional_res_reg*factor_res_reg_gain*iq_PI_reg.Ki;
+				iq_RES_reg_1.Kres = factor_res_reg_gain_additional*factor_res_reg_gain*iq_PI_reg.Ki;
 			}
 			else
 			{
 				iq_RES_reg_1.Kres = 0.0;
 			}
 
-			factor_res_reg_gain = 1 - (iq_RES_reg_2.Harmonic*POLE_PAIRS*fabs(speed_meh_ABF)/freq_critical)*(POLE_PAIRS*iq_RES_reg_2.Harmonic*fabs(speed_meh_ABF)/freq_critical);
+			factor_res_reg_gain = 1 - (iq_RES_reg_2.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*iq_RES_reg_2.Harmonic*fabs(speed_meh_CAP)/freq_critical);
 			if(factor_res_reg_gain > 0.0)
 			{
-				iq_RES_reg_2.Kres = factor_additional_res_reg*factor_res_reg_gain*iq_PI_reg.Ki;
+				iq_RES_reg_2.Kres = factor_res_reg_gain_additional*factor_res_reg_gain*iq_PI_reg.Ki;
 			}
 			else
 			{
 				iq_RES_reg_2.Kres = 0.0;
 			}
 
-			factor_res_reg_gain = 1 - (iq_RES_reg_3.Harmonic*POLE_PAIRS*fabs(speed_meh_ABF)/freq_critical)*(POLE_PAIRS*iq_RES_reg_3.Harmonic*fabs(speed_meh_ABF)/freq_critical);
+			factor_res_reg_gain = 1 - (iq_RES_reg_3.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*iq_RES_reg_3.Harmonic*fabs(speed_meh_CAP)/freq_critical);
 			if(factor_res_reg_gain > 0.0)
 			{
-				iq_RES_reg_3.Kres = factor_additional_res_reg*factor_res_reg_gain*iq_PI_reg.Ki;
+				iq_RES_reg_3.Kres = factor_res_reg_gain_additional*factor_res_reg_gain*iq_PI_reg.Ki;
 			}
 			else
 			{
 				iq_RES_reg_3.Kres = 0.0;
 			}
 
-			factor_res_reg_gain = 1 - (iq_RES_reg_4.Harmonic*POLE_PAIRS*fabs(speed_meh_ABF)/freq_critical)*(POLE_PAIRS*iq_RES_reg_4.Harmonic*fabs(speed_meh_ABF)/freq_critical);
+			factor_res_reg_gain = 1 - (iq_RES_reg_4.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*iq_RES_reg_4.Harmonic*fabs(speed_meh_CAP)/freq_critical);
 			if(factor_res_reg_gain > 0.0)
 			{
-				iq_RES_reg_4.Kres = factor_additional_res_reg*factor_res_reg_gain*iq_PI_reg.Ki;
+				iq_RES_reg_4.Kres = factor_res_reg_gain_additional*factor_res_reg_gain*iq_PI_reg.Ki;
 			}
 			else
 			{
 				iq_RES_reg_4.Kres = 0.0;
 			}
 
-			factor_res_reg_gain = 1 - (iq_RES_reg_5.Harmonic*POLE_PAIRS*fabs(speed_meh_ABF)/freq_critical)*(POLE_PAIRS*iq_RES_reg_5.Harmonic*fabs(speed_meh_ABF)/freq_critical);
+			factor_res_reg_gain = 1 - (iq_RES_reg_5.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*iq_RES_reg_5.Harmonic*fabs(speed_meh_CAP)/freq_critical);
 			if(factor_res_reg_gain > 0.0)
 			{
-				iq_RES_reg_5.Kres = factor_additional_res_reg*factor_res_reg_gain*iq_PI_reg.Ki;
+				iq_RES_reg_5.Kres = factor_res_reg_gain_additional*factor_res_reg_gain*iq_PI_reg.Ki;
 			}
 			else
 			{
 				iq_RES_reg_5.Kres = 0.0;
 			}
 
-			factor_res_reg_gain = 1 - (iq_RES_reg_6.Harmonic*POLE_PAIRS*fabs(speed_meh_ABF)/freq_critical)*(POLE_PAIRS*iq_RES_reg_6.Harmonic*fabs(speed_meh_ABF)/freq_critical);
+			factor_res_reg_gain = 1 - (iq_RES_reg_6.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*iq_RES_reg_6.Harmonic*fabs(speed_meh_CAP)/freq_critical);
 			if(factor_res_reg_gain > 0.0)
 			{
-				iq_RES_reg_6.Kres = factor_additional_res_reg*factor_res_reg_gain*iq_PI_reg.Ki;
+				iq_RES_reg_6.Kres = factor_res_reg_gain_additional*factor_res_reg_gain*iq_PI_reg.Ki;
 			}
 			else
 			{
@@ -1608,13 +1624,21 @@ void extra_current_loop_control(void)
 			}
 
 			// avtomatski izraèun kompenzacije zamika
+			//iq_RES_reg_1.PhaseCompDeg = atan2(2*PI*POLE_PAIRS*(iq_RES_reg_1.Harmonic-1)*speed_meh_CAP*Lq,Rs)*180/PI;
+			iq_RES_reg_1.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			iq_RES_reg_2.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			iq_RES_reg_3.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			iq_RES_reg_4.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			iq_RES_reg_5.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+			iq_RES_reg_6.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
+
 			iq_RES_reg_1.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_1.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
 			iq_RES_reg_2.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_2.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
 			iq_RES_reg_3.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_3.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
 			iq_RES_reg_4.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_4.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
 			iq_RES_reg_5.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_5.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
 			iq_RES_reg_6.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_6.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
-		} // end of if(auto_calc_of_res_reg_params == TRUE)
+		} // end of if(auto_calc_of_advanced_reg_params == TRUE)
 
 
 
@@ -1660,10 +1684,16 @@ void extra_current_loop_control(void)
 		cas_izracuna_RES_multiple_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
 		cas_izracuna_RES_reg = cas_izracuna_RES_multiple_reg/6.0;
 
-	} // end of if(extra_current_reg_type == RES)
+	} // end of if(advanced_current_reg_type == RES)
 
-	else if(extra_current_reg_type == REP)
+	else if(advanced_current_reg_type == REP)
 	{
+		if(auto_calc_of_advanced_reg_params == TRUE)
+		{
+			// iq_REP_reg.k = phase_lag_comp_calc(POLE_PAIRS*speed_meh_CAP)/180.0 * iq_REP_reg.BufferHistoryLength;
+			iq_REP_reg.k = atan2(2*PI*speed_meh_CAP*Lq,Rs)/(2*PI)*iq_REP_reg.BufferHistoryLength;
+		}
+
 		// izracun REP reg. - q os
 		iq_REP_reg.Ref = tok_q_ref;
 		iq_REP_reg.Fdb = tok_q;
@@ -1676,114 +1706,58 @@ void extra_current_loop_control(void)
 		TIC_stop_1();
 		cas_izracuna_REP_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
 
-	}// end of else if(extra_current_reg_type == REP)
+	}// end of else if(advanced_current_reg_type == REP)
 
-	else if(extra_current_reg_type == DCT)
+	else if(advanced_current_reg_type == DCT)
 	{
 
-	}// end of else if(extra_current_reg_type == DCT)
+	}// end of else if(advanced_current_reg_type == DCT)
 
 
 
 
 
 
-	if(enable_extra_current_reg == TRUE)
+	if(enable_advanced_current_reg == TRUE)
 	{
-		switch(extra_current_reg_type)
+		switch(advanced_current_reg_type)
 		{
 		case NONE:
-			extra_id_reg_out = 0.0;
-			extra_iq_reg_out = 0.0;
+			advanced_id_reg_out = 0.0;
+			advanced_iq_reg_out = 0.0;
+			clear_advanced_controllers();
 			break;
 		case RES:
-			extra_id_reg_out = id_RES_reg_1.Out;
-			extra_iq_reg_out = iq_RES_reg_1.Out;
+			advanced_id_reg_out = id_RES_reg_1.Out;
+			advanced_iq_reg_out = iq_RES_reg_1.Out;
 			break;
 		case RES_multiple:
-			extra_id_reg_out = id_multiple_RES_reg_out;
-			extra_iq_reg_out = iq_multiple_RES_reg_out;
+			advanced_id_reg_out = id_multiple_RES_reg_out;
+			advanced_iq_reg_out = iq_multiple_RES_reg_out;
 			break;
 		case REP:
-			extra_id_reg_out = id_REP_reg.Out;
-			extra_iq_reg_out = iq_REP_reg.Out;
+			advanced_id_reg_out = id_REP_reg.Out;
+			advanced_iq_reg_out = iq_REP_reg.Out;
 			break;
 		case DCT:
-//			extra_id_reg_out = id_DCT_reg.Out;
-//			extra_iq_reg_out = iq_DCT_reg.Out;
-			extra_id_reg_out = 0.0;
-			extra_iq_reg_out = 0.0;
+//			advanced_id_reg_out = id_DCT_reg.Out;
+//			advanced_iq_reg_out = iq_DCT_reg.Out;
+			advanced_id_reg_out = 0.0;
+			advanced_iq_reg_out = 0.0;
 			break;
 		default:
-			extra_id_reg_out = 0.0;
-			extra_iq_reg_out = 0.0;
-		} // end of switch(extra_current_reg_type)
+			advanced_id_reg_out = 0.0;
+			advanced_iq_reg_out = 0.0;
+			clear_advanced_controllers();
+		} // end of switch(advanced_current_reg_type)
 
-	} // if(enable_extra_current_reg != FALSE)
+	} // if(enable_advanced_current_reg != FALSE)
 	else
 	{
-		extra_id_reg_out = 0.0;
-		extra_iq_reg_out = 0.0;
+		advanced_id_reg_out = 0.0;
+		advanced_iq_reg_out = 0.0;
 	}
-
-
-
-
-
-
-	// resetiraj integralne dele naprednih reg., èe ti niso vkljuèeni
-	if(extra_current_reg_type == NONE || enable_extra_current_reg == FALSE)
-	{
-		// clear all integral parts of resonant controllers
-		id_RES_reg_1.Ui1 = 0.0;
-		id_RES_reg_1.Ui2 = 0.0;
-		iq_RES_reg_1.Ui1 = 0.0;
-		iq_RES_reg_1.Ui2 = 0.0;
-		id_RES_reg_2.Ui1 = 0.0;
-		id_RES_reg_2.Ui2 = 0.0;
-		iq_RES_reg_2.Ui1 = 0.0;
-		iq_RES_reg_2.Ui2 = 0.0;
-		id_RES_reg_3.Ui1 = 0.0;
-		id_RES_reg_3.Ui2 = 0.0;
-		iq_RES_reg_3.Ui1 = 0.0;
-		iq_RES_reg_3.Ui2 = 0.0;
-		id_RES_reg_4.Ui1 = 0.0;
-		id_RES_reg_4.Ui2 = 0.0;
-		iq_RES_reg_4.Ui1 = 0.0;
-		iq_RES_reg_4.Ui1 = 0.0;
-		iq_RES_reg_5.Ui2 = 0.0;
-		id_RES_reg_5.Ui2 = 0.0;
-		iq_RES_reg_5.Ui1 = 0.0;
-		iq_RES_reg_5.Ui2 = 0.0;
-		iq_RES_reg_6.Ui2 = 0.0;
-		id_RES_reg_6.Ui2 = 0.0;
-		iq_RES_reg_6.Ui1 = 0.0;
-		iq_RES_reg_6.Ui2 = 0.0;
-
-		// clear all outputs of resonant controllers
-		id_RES_reg_1.Out = 0.0;
-		iq_RES_reg_1.Out = 0.0;
-		id_RES_reg_2.Out = 0.0;
-		iq_RES_reg_2.Out = 0.0;
-		id_RES_reg_3.Out = 0.0;
-		iq_RES_reg_3.Out = 0.0;
-		id_RES_reg_4.Out = 0.0;
-		iq_RES_reg_4.Out = 0.0;
-		id_RES_reg_5.Out = 0.0;
-		iq_RES_reg_5.Out = 0.0;
-		id_RES_reg_6.Out = 0.0;
-		iq_RES_reg_6.Out = 0.0;
-
-
-
-
-		// clear all integral parts of repetitive controllers
-
-		// clear all outputs of repetitive controllers
-
-	} // end of if(extra_current_reg_type == NONE)
-
-} // end of void extra_current_loop_control(void)
+} // end of void advanced_current_loop_control(void)
 
 
 
@@ -1912,11 +1886,19 @@ void trip_reset(void)
 	// disable PWM
 	SVM_disable();
 	
-	// clear all flags except 2
+
+	// user interface defaults
+	modulation = SVM;
+	control = OPEN_LOOP;
+	advanced_current_reg_type = NONE;
+
+	control_enable = FALSE;
+	enable_advanced_current_reg = FALSE;
+	auto_calc_of_advanced_reg_params = FALSE;
+
+	// clear all flags except next two
 	current_offset_calibrated_flag = TRUE;
 	reset_null_position_procedure_flag = TRUE;
-	
-	control_enable = FALSE;
 	
 	set_null_position_flag = FALSE;
 	incremental_encoder_connected_flag = FALSE;
@@ -1946,10 +1928,6 @@ void trip_reset(void)
 	// Clear integral parts and outputs of all controllers
 	clear_controllers();
 
-	// disable extra current controllers
-	enable_extra_current_reg = FALSE;
-	auto_calc_of_res_reg_params = FALSE;
-
 	// clear all reference values
 	nap_alpha_ref = 0.0;
 	nap_beta_ref = 0.0;
@@ -1971,9 +1949,6 @@ void trip_reset(void)
 	direction = 1;
 	tic_direction = 0;
 	delta_tic_direction = 0;
-	
-	modulation = SVM;
-	control = OPEN_LOOP;
 	
 	kot_raw = 0;
 	kot_meh = 0.0;
@@ -1999,6 +1974,18 @@ void clear_controllers(void)
 	speed_PI_reg.Out = 0.0;
 	position_PID_reg.Out = 0.0;
 
+	clear_advanced_controllers();
+}
+
+
+
+
+/**************************************************************
+* Function, which clears integral parts and outputs of
+* advaced current controllers
+**************************************************************/
+void clear_advanced_controllers(void)
+{
 	// clear all integral parts of resonant controllers
 	id_RES_reg_1.Ui1 = 0.0;
 	id_RES_reg_1.Ui2 = 0.0;
@@ -2040,11 +2027,64 @@ void clear_controllers(void)
 	iq_RES_reg_6.Out = 0.0;
 
 
+	
 
-
-	// clear all integral parts of repetitive controllers
+	// clear all integral parts of repetitive controller
+	// (be careful: the fact is that some time must be spend to clear the whole buffer, which is typical les than 1 s)
+	id_REP_reg.ErrSumHistory[clear_REP_buffer_index] = 0.0;
+	iq_REP_reg.ErrSumHistory[clear_REP_buffer_index] = 0.0;
+	id_REP_reg.ErrSum = 0.0;
+	iq_REP_reg.ErrSum = 0.0;
+	clear_REP_buffer_index = clear_REP_buffer_index + 1;
+	if(clear_REP_buffer_index >= id_REP_reg.BufferHistoryLength - 1)
+	{
+		clear_REP_buffer_index = 0;
+	}
+	id_REP_reg.i = 0;
+	id_REP_reg.i_prev = -1;
+	iq_REP_reg.i = 0;
+	iq_REP_reg.i_prev = -1;
 
 	// clear all outputs of repetitive controllers
+	id_REP_reg.Out = 0.0;
+	iq_REP_reg.Out = 0.0;
+
+
+
+
+	// clear all integral parts of DCT controller
+	// (be careful: the fact is that some time must be spend to clear the whole buffer, which is typical les than 1 s)
+}
+
+
+
+
+/**************************************************************
+* Function, which calculates systems (L filter) phase delay,
+* obtained from sweep test and aproximated with a polynomial
+* and returns controllers phase delay compensation (units [°])
+**************************************************************/
+float	phase_lag_comp_calc(float phase_lag_freq)
+{
+	float phase_lag_deg = 0.0;
+	float phase_lag_comp_deg = 0.0;
+
+	phase_lag_deg = 0.000000000328741*phase_lag_freq*phase_lag_freq*phase_lag_freq*phase_lag_freq - 	\
+			  	    0.000000838238599*phase_lag_freq*phase_lag_freq*phase_lag_freq + 					\
+			        0.000747034545213*phase_lag_freq*phase_lag_freq - 									\
+			        0.322363338196571*phase_lag_freq - 													\
+			        2.157682293314558;
+
+	if((phase_lag_deg >= -90.0) && (phase_lag_deg <= 0.0))
+	{
+		phase_lag_comp_deg = -phase_lag_deg;
+	}
+	else
+	{
+		phase_lag_comp_deg = 90.0;
+	}
+
+	return phase_lag_comp_deg;
 }
 
 
@@ -2171,12 +2211,12 @@ void PER_int_setup(void)
 
     // initialize current repetitive controller
     REP_REG_INIT_MACRO(id_REP_reg);
-    id_REP_reg.BufferHistoryLength = 400; // 400 = 20kHz/50 Hz
-    id_REP_reg.Krep = 0.01; // 0.02
+    id_REP_reg.BufferHistoryLength = 1000; // 400 = 20kHz/50 Hz
+    id_REP_reg.Krep = 0.01; // 0.01
     id_REP_reg.k = 6; // 6
-    id_REP_reg.w0 = 0.2; // 0.2
-    id_REP_reg.w1 = 0.2; // 0.2
-    id_REP_reg.w2 = 0.2; // 0.2
+    id_REP_reg.w0 = 0.403; // 0.2 ali 0.403
+    id_REP_reg.w1 = 0.250; // 0.2 ali 0.250
+    id_REP_reg.w2 = 0.049; // 0.2 ali 0.049
     id_REP_reg.ErrSumMax = 0.6;
     id_REP_reg.ErrSumMin = -0.6;
     id_REP_reg.OutMax = 0.1;
@@ -2198,9 +2238,9 @@ void PER_int_setup(void)
 	// clear integral parts and outputs of all controllers
 	clear_controllers();
 
-	// disable extra current controllers
-	enable_extra_current_reg = FALSE;
-	auto_calc_of_res_reg_params = FALSE;
+	// disable advanced current controllers
+	enable_advanced_current_reg = FALSE;
+	auto_calc_of_advanced_reg_params = FALSE;
 
     // initialize stopwatch
 	TIC_init();
