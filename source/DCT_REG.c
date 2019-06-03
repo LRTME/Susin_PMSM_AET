@@ -12,6 +12,9 @@
 
 #include "DCT_REG.h"
 
+// deklaracija funkcij
+int circular_buffer_transformation2(int IndexLinearBuffer, int BufferSize);
+
 // globalne spremenljivke
 
 // spremenljivke za FIR filter iz FPU modula
@@ -19,108 +22,116 @@
 // Create an Instance of FIRFILT_GEN module and place the object in "firfilt" section
 #pragma DATA_SECTION(firFP, "firfilt")
 FIR_FP  firFP = FIR_FP_DEFAULTS;
-// Define the Delay buffer for the FIR filter and place it in "firldb" section
-#pragma DATA_SECTION(dbuffer, "firldb")
-// Align the delay buffer for max 1024 words (512 float variables)
-#pragma DATA_ALIGN (dbuffer,0x400)
+
 // Define the Delay buffer for the FIR filter with specifed length
 float dbuffer[FIR_FILTER_NUMBER_OF_COEFF];
-// Define coefficient array and place it in "coefffilter" section
-#pragma DATA_SECTION(coeff, "coefffilt");
-// Align the coefficent buffer for max 1024 words (512 float coeff)
-#pragma DATA_ALIGN (coeff,0x400)
+// Define the Delay buffer for the FIR filter and place it in "firldb" section
+#pragma DATA_SECTION(dbuffer, "firldb")
+// Align the delay buffer for max 2048 words (1024 float variables)
+#pragma DATA_ALIGN (dbuffer,0x800)
+
 // Define the coeff buffer for the FIR filter with specifed length
 float coeff[FIR_FILTER_NUMBER_OF_COEFF];
+// Define coefficient array and place it in "coefffilter" section
+#pragma DATA_SECTION(coeff, "coefffilt");
+// Align the coefficent buffer for max 2048 words (1024 float coeff)
+#pragma DATA_ALIGN (coeff,0x800)
 
 
-// funkcija
+
+/****************************************************************************************************
+* Funkcija, ki izvede algoritem DCT regulatorja.
+* Zelo zaželeno je, da je razmerje med vzorèno frekvenco in osnovno frekvenco reguliranega signala
+* enako velikosti pomnilnika "BufferHistoryLength" (in veèje od 20), saj je regulator na to obèutljiv,
+* kar lahko privede do nezanemarljivega pogreška v stacionarnem stanju.
+****************************************************************************************************/
 #pragma CODE_SECTION(DCT_REG_CALC, "ramfuncs");
 void DCT_REG_CALC (DCT_REG_float *v)
 {
-    // lokalne spremenljivke
-	static int first_start = 0;
+	// lokalne spremenljivke
 
 
 
 
-    // program
+	// program
 
-	/* no need for limiting k and BufferHistoryLength, because they are defined at initialisation and must stay constant
+	// omejitev dolžine circular bufferja
+	if (v->BufferHistoryLength > FIR_FILTER_NUMBER_OF_COEFF)
+	{
+		v->BufferHistoryLength = FIR_FILTER_NUMBER_OF_COEFF;
+	}
+	else if (v->BufferHistoryLength < 0)
+	{
+		v->BufferHistoryLength = 0;
+	}
 
-    // omejitev dolžine circular bufferja
-    if (v->BufferHistoryLength > FIR_FILTER_NUMBER_OF_COEFF)
-    {
-        v->BufferHistoryLength = FIR_FILTER_NUMBER_OF_COEFF;
-    }
-    else if (v->BufferHistoryLength < 1)
-    {
-        v->BufferHistoryLength = 1;
-    }
+	// omejitev kompenzacije zakasnitve, ki ne sme presegati dolžine bufferja
+	if (v->k > v->BufferHistoryLength)
+	{
+		v->k = v->BufferHistoryLength;
+	}
+	else if (v->k < -v->BufferHistoryLength)
+	{
+		v->k = -v->BufferHistoryLength;
+	}
 
-    // omejitev kompenzacije zakasnitve, ki ne sme presegati dolžine bufferja
-    if (v->k > FIR_FILTER_NUMBER_OF_COEFF)
-    {
-        v->k = FIR_FILTER_NUMBER_OF_COEFF;
-    }
-    else if (v->k < 0)
-    {
-        v->k = 0;
-    }
+	// omejitev vzorènega signala med 0.0 in 0.9999
+	//(SamplingSignal ne sme biti enak ena, ker mora biti indeks i omejen od 0 do BufferHistoryLength-1)
+	v->SamplingSignal = (v->SamplingSignal > 0.99999)? 0.99999: v->SamplingSignal;
+	v->SamplingSignal = (v->SamplingSignal < 0.0)? 0.0: v->SamplingSignal;
 
-	*/
+
+
 
 	v->BufferHistoryLength = FIR_FILTER_NUMBER_OF_COEFF;
     v->k = LAG_COMPENSATION;
 
-    // omejitev vzorènega signala med 0.0 in 0.9999 (SamplingSignal ne sme biti enak ena, ker mora biti indeks i omejen od 0 do BufferHistoryLength-1)
-    v->SamplingSignal = (v->SamplingSignal > 0.99999)? 0.99999: v->SamplingSignal;
-    v->SamplingSignal = (v->SamplingSignal < 0.0)? 0.0: v->SamplingSignal;
-
-
-
-
     // izraèun trenutnega indeksa bufferja
-    v->i = (int)(v->SamplingSignal * v->BufferHistoryLength);
+	v->i = (int)(v->SamplingSignal*v->BufferHistoryLength);
 
 
 
 
-    // èe se indeks spremeni, potem gre algoritem dalje (vsako periodo signala, ne pa vsako vzorèno periodo/interval)
-    if ((v->i != v->i_prev) || (first_start == 0))
-    {
-    	if(v->i != v->i_prev)
-    	{
-			// ko je program prviè na tem mestu, dvignemo zastavico
-			first_start = 1;
-    	}
+	// èe se indeks spremeni, potem gre algoritem dalje:
+	//   1. èe je "SamplingSignal" zunaj te funkcije natanèno sinhroniziran z vzorèno frekvenco ("i_delta" = 1)
+	//      se algoritem izvajanja repetitivnega regulatorja izvede vsako vzorèno periodo/interval in se
+	//      izkoristi celotna velikost pomnilnika, kar je optimalno
+	//   2. èe je "SamplingSignal" prepoèasen ("i_delta" < 1) oz. osnovna frekvenca reguliranega signala prenizka,
+	//      ni nujno, da se algoritem izvajanja repetitivnega regulatorja izvede vsako vzorèno periodo/interval,
+	//      kar pomeni, da ta algoritem lahko deluje s frekvenco nižjo od vzorène frekvence
+	//   3. èe je "SamplingSignal" prehiter ("i_delta" > 1), oz. osnovna frekvenca reguliranega signala previsoka,
+	//      se algoritem izvajanja repetitivnega regulatorja izvede vsako vzorèno periodo/interval,
+	//      a se velikost pomnilnika umetno zmanjša za faktor "i_delta", saj zapisujemo in beremo le vsak "i_delta"-ti vzorec,
+	//      kar pomeni, kot da bi bila velikost pomnilnika manjša za faktor "i_delta"
+	//      OPOMBA: To zadnjo funkcionalnost je možno izklopiti z odkomentiranjem vrstice "v->i_delta = 1;"!
+	if ((v->i != v->i_prev))
+	{
+		// izraèun razlike med trenutnim indeksom "i" in prejšnjim indeksom "i_prev"
+		// (èe je "SamplingSignal" prehiter, lahko velikost pomnilnika
+		// umetno zmanjšamo za faktor "i_delta", saj zapisujemo in beremo le vsak "i_delta"-ti vzorec,
+		// ki pa ne sme presegati polovico velikosti pomnilnika)
+		v->i_delta = v->i - v->i_prev;
 
-    	/***************************************************/
-		/* circular buffer */
-    	/***************************************************/
+		// manipuliranje z indeksi - zaradi circular bufferja; èe indeks narašèa - inkrementiranje
+		if ( (v->i < v->i_prev) && (v->i_delta < -(v->BufferHistoryLength >> 1)) )
+		{
+			v->i_delta = v->BufferHistoryLength - v->i_delta;
+		}
+		// manipuliranje z indeksi - zaradi circular bufferja; èe indeks pada - dekrementiranje
+		else if ( (v->i > v->i_prev) && (v->i_delta > (v->BufferHistoryLength >> 1)) )
+		{
+			v->i_delta = -(v->BufferHistoryLength - v->i_delta);
+		}
+
+
+		// èe funkcionalnost umetnega zmanjševanja velikosti pomnilnika ni zaželena ali ni potrebna (opis pod toèko 3.),
+		// odkomentiraj naslednjo vrstico
+		v->i_delta = 1;
+
+
 
 		// manipuliranje z indeksi - zaradi circular bufferja
-    	if ( (v->i > v->i_prev) || (v->i - v->i_prev == -(v->BufferHistoryLength - 1)) || (first_start == 0) )
-		{
-			// indeks, ki kaže v preteklost (potrebujem za ponovno zakasnitev, ki je že kompenzirana z DCT filtrom)
-			v->index = v->i - 1 - v->k;
-
-			// omejitve zaradi circular bufferja
-			if (v->index < 0)
-			{
-				v->index = v->index + v->BufferHistoryLength;
-			}
-		} // end of if (v->i > v->i_prev)
-        else if ( (v->i < v->i_prev) || (v->i - v->i_prev == (v->BufferHistoryLength - 1)) )
-		{
-			// indeks, ki kaže v preteklost (potrebujem za ponovno zakasnitev, ki je že kompenzirana z DCT filtrom)
-			v->index = v->i + 1 + v->k;
-
-			// omejitve zaradi circular bufferja
-			if (v->index > (v->BufferHistoryLength - 1))
-			{
-				v->index = v->index - v->BufferHistoryLength;
-			}
-		} // end of else if (v->i < v->i_prev)
+		v->index = circular_buffer_transformation2(v->i + v->k*v->i_delta,v->BufferHistoryLength);
 
 
 
@@ -173,3 +184,42 @@ void DCT_REG_CALC (DCT_REG_float *v)
 
 
 } // konec funkcije
+
+
+
+
+
+
+
+
+/****************************************************************************************************
+ * Realizacija funkcije krožnega pomnilnika (angl. circular buffer), s katero "index",
+ * ki je lahko veèji od BufferSize-1 oz. manjši od 0 reducira na obmoèje [0,BufferSize-1].
+ * OPOMBA: Na omejeno obmoèje [0,BufferSize-1] lahko funkcija transformira le števila,
+ * ki so absolutno manjša od 10-kratnika velikosti pomnilnika "BufferSize" (glej for zanko)!
+ * For zanka (namesto while) je implementirana zato, da omeji najveèje število iteracij zanke.
+****************************************************************************************************/
+int circular_buffer_transformation2(IndexLinearBuffer,BufferSize)
+{
+	int IndexCircularBuffer = IndexLinearBuffer;
+	static int i;
+
+	// omejim stevilo iteracij na 10
+	for(i = 0; i < 10; i++)
+	{
+		if(IndexCircularBuffer > BufferSize - 1)
+		{
+			IndexCircularBuffer = IndexCircularBuffer - BufferSize;
+		}
+		else if(IndexCircularBuffer < 0)
+		{
+			IndexCircularBuffer = IndexCircularBuffer + BufferSize;
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	return(IndexCircularBuffer);
+}

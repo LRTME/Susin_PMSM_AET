@@ -170,7 +170,7 @@ int 			clear_REP_buffer_index = 0;
 float			cas_izracuna_REP_reg = 0.0;
 
 // advanced current discrete cosinus transform (DCT) controller
-//DCT_REG_float	id_DCT_reg = DCT_REG_FLOAT_DEFAULTS;
+DCT_REG_float	id_DCT_reg = DCT_REG_FLOAT_DEFAULTS;
 //DCT_REG_float	iq_DCT_reg = DCT_REG_FLOAT_DEFAULTS;
 int 			clear_DCT_buffer_index = 0;
 float			cas_izracuna_DCT_reg = 0.0;
@@ -239,7 +239,7 @@ bool	tok_i3_overcurrent_flag = FALSE;
 float 	temp1 = 0.0;
 float 	temp2 = 0.0;
 float 	temp3 = 0.0;
-
+float	SamplingSignal_20Hz = 0.0;
 
 // extern variables
 extern bool 	sw1_state;
@@ -304,6 +304,13 @@ void interrupt PER_int(void)
     	interrupt_cnt_min = interrupt_cnt_min + 1;
     }
 
+
+    // Sampling signal generation, which is integral of constant frequency f = 50 Hz - limited [0,1)
+    SamplingSignal_20Hz = SamplingSignal_20Hz + 20.0 * 1.0/SAMPLE_FREQ;
+    if (SamplingSignal_20Hz > 1.0)
+    {
+    	SamplingSignal_20Hz = SamplingSignal_20Hz - 1.0;
+    }
 
     // reference value generator
     REF_GEN_update();
@@ -1465,6 +1472,14 @@ void advanced_current_loop_control(void)
 			// id_RES_reg_5.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
 			// id_RES_reg_6.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
 
+			// v praksi ne deluje
+			// id_RES_reg_1.PhaseCompDeg = atan2(2*PI*(id_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+			// id_RES_reg_2.PhaseCompDeg = atan2(2*PI*(id_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+			// id_RES_reg_3.PhaseCompDeg = atan2(2*PI*(id_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+			// id_RES_reg_4.PhaseCompDeg = atan2(2*PI*(id_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+			// id_RES_reg_5.PhaseCompDeg = atan2(2*PI*(id_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+			// id_RES_reg_6.PhaseCompDeg = atan2(2*PI*(id_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+
 			// v praksi deluje
 			id_RES_reg_1.PhaseCompDeg = atan2(2*PI*(id_RES_reg_1.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
 			id_RES_reg_2.PhaseCompDeg = atan2(2*PI*(id_RES_reg_2.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
@@ -1546,7 +1561,25 @@ void advanced_current_loop_control(void)
 	}// end of else if(advanced_current_reg_type == REP)
 	else if(advanced_current_reg_type == DCT)
 	{
+		if(auto_calc_of_advanced_reg_params == TRUE)
+		{
 
+		}
+
+		// izracun DCT reg. - d os
+		// id_DCT_reg.Ref = tok_d_ref;
+		// id_DCT_reg.Fdb = tok_d;
+		// id_DCT_reg.SamplingSignal = kot_el;
+		id_DCT_reg.Ref = 1.0 * cos(2.0 * PI * SamplingSignal_20Hz);
+		id_DCT_reg.Fdb = 0.0 * cos(2.0 * PI * SamplingSignal_20Hz);
+		id_DCT_reg.SamplingSignal = SamplingSignal_20Hz;
+
+		TIC_start_1();
+
+		DCT_REG_CALC(&id_DCT_reg);
+
+		TIC_stop_1();
+		cas_izracuna_DCT_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
 	}// end of else if(advanced_current_reg_type == DCT)
 
 
@@ -1637,6 +1670,14 @@ void advanced_current_loop_control(void)
 			// iq_RES_reg_5.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
 			// iq_RES_reg_6.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
 
+			// v praksi ne deluje
+			// iq_RES_reg_1.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+			// iq_RES_reg_2.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+			// iq_RES_reg_3.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+			// iq_RES_reg_4.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+			// iq_RES_reg_5.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+			// iq_RES_reg_6.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+
 			// v praksi deluje
 			iq_RES_reg_1.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_1.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
 			iq_RES_reg_2.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_2.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
@@ -1719,8 +1760,26 @@ void advanced_current_loop_control(void)
 
 	else if(advanced_current_reg_type == DCT)
 	{
+		if(auto_calc_of_advanced_reg_params == TRUE)
+		{
 
-	}// end of else if(advanced_current_reg_type == DCT)
+		}
+/*
+		// izracun DCT reg. - q os
+		// iq_DCT_reg.Ref = tok_q_ref;
+		// iq_DCT_reg.Fdb = tok_q;
+		// iq_DCT_reg.SamplingSignal = kot_el;
+		iq_DCT_reg.Ref = 1.0 * cos(2 * PI * SamplingSignal_20Hz);
+		iq_DCT_reg.Fdb = 0.0 * cos(2 * PI * SamplingSignal_20Hz);
+		iq_DCT_reg.SamplingSignal = SamplingSignal_20Hz;
+
+		TIC_start_1();
+
+		DCT_REG_CALC(&iq_DCT_reg);
+
+		TIC_stop_1();
+		cas_izracuna_DCT_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
+*/	}// end of else if(advanced_current_reg_type == DCT)
 
 
 
@@ -1749,8 +1808,9 @@ void advanced_current_loop_control(void)
 			advanced_iq_reg_out = iq_REP_reg.Out;
 			break;
 		case DCT:
-//			advanced_id_reg_out = id_DCT_reg.Out;
+			advanced_id_reg_out = id_DCT_reg.Out;
 //			advanced_iq_reg_out = iq_DCT_reg.Out;
+
 			advanced_id_reg_out = 0.0;
 			advanced_iq_reg_out = 0.0;
 			break;
@@ -2220,29 +2280,52 @@ void PER_int_setup(void)
 
     // initialize current repetitive controller
     REP_REG_INIT_MACRO(id_REP_reg);
-    id_REP_reg.BufferHistoryLength = 1000; // 400 = 20kHz/50 Hz
+    id_REP_reg.BufferHistoryLength = 1000; // 1000 = 20kHz/20 Hz
     id_REP_reg.Krep = 0.01; // 0.01
     id_REP_reg.k = 6; // 6
     id_REP_reg.w0 = 0.403; // 0.2 ali 0.403
     id_REP_reg.w1 = 0.250; // 0.2 ali 0.250
     id_REP_reg.w2 = 0.049; // 0.2 ali 0.049
-    id_REP_reg.ErrSumMax = 0.6;
-    id_REP_reg.ErrSumMin = -0.6;
+    id_REP_reg.ErrSumMax = 0.2;
+    id_REP_reg.ErrSumMin = -0.2;
     id_REP_reg.OutMax = 0.1;
     id_REP_reg.OutMin = -0.1;
 
     REP_REG_INIT_MACRO(iq_REP_reg);
-    iq_REP_reg.BufferHistoryLength = id_REP_reg.BufferHistoryLength; // 400 = 20kHz/50 Hz
-    iq_REP_reg.Krep = id_REP_reg.Krep; // 0.02
+    iq_REP_reg.BufferHistoryLength = id_REP_reg.BufferHistoryLength; // 1000 = 20kHz/20 Hz
+    iq_REP_reg.Krep = id_REP_reg.Krep; // 0.01
     iq_REP_reg.k = id_REP_reg.k; // 6
-    iq_REP_reg.w0 = id_REP_reg.w0; // 0.2
-    iq_REP_reg.w1 = id_REP_reg.w1; // 0.2
-    iq_REP_reg.w2 = id_REP_reg.w2; // 0.2
+    iq_REP_reg.w0 = id_REP_reg.w0; // 0.2 ali 0.403
+    iq_REP_reg.w1 = id_REP_reg.w1; // 0.2 ali 0.403
+    iq_REP_reg.w2 = id_REP_reg.w2; // 0.2 ali 0.403
     iq_REP_reg.ErrSumMax = id_REP_reg.ErrSumMax;
     iq_REP_reg.ErrSumMin = id_REP_reg.ErrSumMin;
     iq_REP_reg.OutMax = id_REP_reg.OutMax;
     iq_REP_reg.OutMin = id_REP_reg.OutMin;
 
+    // initialize current DCT controller
+    DCT_REG_INIT_MACRO(id_DCT_reg);
+    id_DCT_reg.Kdct = 0.01; // 0.01
+    id_DCT_reg.ErrSumMax = 0.2;
+    id_DCT_reg.ErrSumMin = -0.2;
+    id_DCT_reg.OutMax = 0.1;
+    id_DCT_reg.OutMin = -0.1;
+    DCT_REG_FIR_COEFF_CALC_MACRO(id_DCT_reg);
+
+/*
+    DCT_REG_INIT_MACRO(iq_DCT_reg);
+    iq_DCT_reg.Kdct = id_DCT_reg.Kdct; // 0.01
+    iq_DCT_reg.ErrSumMax = id_DCT_reg.ErrSumMax;
+    iq_DCT_reg.ErrSumMin = id_DCT_reg.ErrSumMin;
+    iq_DCT_reg.OutMax = id_DCT_reg.OutMax;
+    iq_DCT_reg.OutMin = id_DCT_reg.OutMin;
+    DCT_REG_FIR_COEFF_CALC_MACRO(iq_DCT_reg);
+*/
+	// FIR generic filter initialization - necessary for the DCT controller
+	firFP.order = FIR_FILTER_NUMBER_OF_COEFF - 1;
+	firFP.dbuffer_ptr = dbuffer;
+	firFP.coeff_ptr = (float *)coeff;
+	firFP.init(&firFP);
 
 	// clear integral parts and outputs of all controllers
 	clear_controllers();

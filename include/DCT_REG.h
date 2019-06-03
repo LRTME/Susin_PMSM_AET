@@ -23,7 +23,7 @@
 
 
 // maximal length of buffer for saving history of accumulated error and number of coefficients for DCT (FIR) filter
-#define     FIR_FILTER_NUMBER_OF_COEFF   	400
+#define     FIR_FILTER_NUMBER_OF_COEFF   	1000
 
 // maximal length of harmonics array
 #define		LENGTH_OF_HARMONICS_ARRAY		3
@@ -33,8 +33,13 @@
 // number of samples for compensation of the phase delay
 #define		LAG_COMPENSATION				0
 
-// coefficients of FIR filter declaration
+/* create (declare) structure for FIR filter */
+extern FIR_FP  firFP;
+/* create (declare) delay buffer (array) for FIR filter realization */
+extern float dbuffer[FIR_FILTER_NUMBER_OF_COEFF];
+/* create (declare) coefficent buffer (array) for FIR filter realization */
 extern float coeff[FIR_FILTER_NUMBER_OF_COEFF];
+
 
 typedef struct DCT_REG_FLOAT_STRUCT
 {
@@ -53,6 +58,7 @@ typedef struct DCT_REG_FLOAT_STRUCT
     float Correction;               // Variable: Correction that is summed with Ref
     int   i;                        // Variable: Index i in CorrectionHistory
 	int   i_prev;                   // Variable: i from previous period
+    int   i_delta;                  // Variable: difference between i and i_prev
 	int   index;                    // Variable: Index build from i and LagCompensation
 	int   j;                        // Variable: Index j in FIR filter coefficient and in for loop when performing convolution
 	int   CircularBufferIndex;		// Variable: Index of circular buffer
