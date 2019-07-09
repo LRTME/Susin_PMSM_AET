@@ -112,7 +112,10 @@ float	pot_rel_discrete_old = 0.0;
 
 /* control algorithm variables */
 // general variables
+float	SamplingSignal_20Hz = 0.0;
+
 float	duty_DC = 0.0;
+float	duty_sinewave = 0.0;
 float 	duty_six_step = 0.0;
 int 	sector_six_step = 1;
 float	amp_rel = 0.0;
@@ -174,6 +177,20 @@ DCT_REG_float	id_DCT_reg = DCT_REG_FLOAT_DEFAULTS;
 //DCT_REG_float	iq_DCT_reg = DCT_REG_FLOAT_DEFAULTS;
 int 			clear_DCT_buffer_index = 0;
 float			cas_izracuna_DCT_reg = 0.0;
+
+// define the delay buffer for the FIR filter with specifed length - needed for DCT controller realization
+float dbuffer1[FIR_FILTER_NUMBER_OF_COEFF];
+// define the delay buffer for the FIR filter and place it in "firldb" section - needed for DCT controller realization
+#pragma DATA_SECTION(dbuffer1, "firldb")
+// align the delay buffer for max 2048 words (1024 float variables) - needed for DCT controller realization
+#pragma DATA_ALIGN (dbuffer1,0x800)
+
+// define the coeff buffer for the FIR filter with specifed length - needed for DCT controller realization
+float coeff1[FIR_FILTER_NUMBER_OF_COEFF];
+// define coefficient array and place it in "coefffilter" section - needed for DCT controller realization
+#pragma DATA_SECTION(coeff1, "coefffilt");
+// align the coefficent buffer for max 2048 words (1024 float coeff) - needed for DCT controller realization
+#pragma DATA_ALIGN (coeff1,0x800)
 
 // speed PI controller
 float   Kp_speed_PI_reg = 3.0;  			// velja èe merimo napetost z ABF: Kp = 3.0
@@ -239,7 +256,6 @@ bool	tok_i3_overcurrent_flag = FALSE;
 float 	temp1 = 0.0;
 float 	temp2 = 0.0;
 float 	temp3 = 0.0;
-float	SamplingSignal_20Hz = 0.0;
 
 // extern variables
 extern bool 	sw1_state;
@@ -305,7 +321,7 @@ void interrupt PER_int(void)
     }
 
 
-    // Sampling signal generation, which is integral of constant frequency f = 50 Hz - limited [0,1)
+    // Sampling signal generation, which is integral of constant frequency f = 20 Hz - limited [0,1)
     SamplingSignal_20Hz = SamplingSignal_20Hz + 20.0 * 1.0/SAMPLE_FREQ;
     if (SamplingSignal_20Hz > 1.0)
     {
@@ -359,7 +375,7 @@ void interrupt PER_int(void)
     	{
     		modulation = modulation + 1;
     	}
-    	if(modulation == 3)
+    	if(modulation == 4)
     	{
     		modulation = 0;
     	}
@@ -1161,6 +1177,9 @@ void control_algorithm(void)
 	case SIX_STEP:
 		SVM_update_six(duty_six_step, sector_six_step);
 		break;
+	case SINGLE_PHASE_SINE:
+		SVM_update_DC(duty_sinewave);
+		break;
 	case SINGLE_PHASE_DC:
 		SVM_update_DC(duty_DC);
 		break;
@@ -1283,6 +1302,10 @@ void open_loop_control(void)
 				sector_six_step = 6;
 			}
 		}
+	}
+	else if(modulation == SINGLE_PHASE_SINE)
+	{
+		duty_sinewave = direction*pot_rel*sin(2.0 * PI * SamplingSignal_20Hz);
 	}
 	else if(modulation == SINGLE_PHASE_DC)
 	{
@@ -1567,12 +1590,12 @@ void advanced_current_loop_control(void)
 		}
 
 		// izracun DCT reg. - d os
-		// id_DCT_reg.Ref = tok_d_ref;
-		// id_DCT_reg.Fdb = tok_d;
-		// id_DCT_reg.SamplingSignal = kot_el;
-		id_DCT_reg.Ref = 1.0 * cos(2.0 * PI * SamplingSignal_20Hz);
-		id_DCT_reg.Fdb = 0.0 * cos(2.0 * PI * SamplingSignal_20Hz);
-		id_DCT_reg.SamplingSignal = SamplingSignal_20Hz;
+		id_DCT_reg.Ref = tok_d_ref;
+		id_DCT_reg.Fdb = tok_d;
+		id_DCT_reg.SamplingSignal = kot_el;
+//		id_DCT_reg.Ref = 1.0 * cos(2.0 * PI * SamplingSignal_20Hz) + 1.0 * cos(2.0 * PI * 6.0* SamplingSignal_20Hz);
+//		id_DCT_reg.Fdb = 0.0;
+//		id_DCT_reg.SamplingSignal = SamplingSignal_20Hz;
 
 		TIC_start_1();
 
@@ -2013,6 +2036,7 @@ void trip_reset(void)
 	duty_six_step = 0.0;
 	sector_six_step = 1;
 	duty_DC = 0.0;
+	duty_sinewave = 0.0;
 	
 	// set variables to initial state
 	direction = 1;
@@ -2099,20 +2123,24 @@ void clear_advanced_controllers(void)
 	
 
 	// clear all integral parts of repetitive controller
-	// (be careful: the fact is that some time must be spend to clear the whole buffer, which is typical les than 1 s)
+	// CAUTION: THE FACT IS THAT SOME TIME MUST BE SPEND TO CLEAR THE WHOLE BUFFER (ONE IN EACH ITERATION),
+	//          WHICH IS TYPICAL LESS THAN 1 SEC!
 	id_REP_reg.ErrSumHistory[clear_REP_buffer_index] = 0.0;
 	iq_REP_reg.ErrSumHistory[clear_REP_buffer_index] = 0.0;
+
 	id_REP_reg.ErrSum = 0.0;
 	iq_REP_reg.ErrSum = 0.0;
+
+	id_REP_reg.i = 0;
+	id_REP_reg.i_prev = -1;
+	iq_REP_reg.i = 0;
+	iq_REP_reg.i_prev = -1;
+
 	clear_REP_buffer_index = clear_REP_buffer_index + 1;
 	if(clear_REP_buffer_index >= id_REP_reg.BufferHistoryLength - 1)
 	{
 		clear_REP_buffer_index = 0;
 	}
-	id_REP_reg.i = 0;
-	id_REP_reg.i_prev = -1;
-	iq_REP_reg.i = 0;
-	iq_REP_reg.i_prev = -1;
 
 	// clear all outputs of repetitive controllers
 	id_REP_reg.Out = 0.0;
@@ -2122,7 +2150,33 @@ void clear_advanced_controllers(void)
 
 
 	// clear all integral parts of DCT controller
-	// (be careful: the fact is that some time must be spend to clear the whole buffer, which is typical les than 1 s)
+	// CAUTION: THE FACT IS THAT SOME TIME MUST BE SPEND TO CLEAR THE WHOLE BUFFER (ONE IN EACH ITERATION),
+	//          WHICH IS TYPICAL LESS THAN 1 SEC!
+	id_DCT_reg.CorrectionHistory[clear_DCT_buffer_index] = 0.0;
+	//	iq_DCT_reg.CorrectionHistory[clear_DCT_buffer_index] = 0.0;
+
+	// CAUTION: THE FACT IS THAT SOME TIME MUST BE SPEND TO CLEAR THE WHOLE BUFFER (ONE IN EACH ITERATION),
+	//          WHICH IS TYPICAL LESS THAN 1 SEC!
+	dbuffer1[clear_DCT_buffer_index] = 0.0;
+	//	dbuffer2[clear_DCT_buffer_index] = 0.0;
+
+	id_DCT_reg.ErrSum = 0.0;
+//	iq_DCT_reg.ErrSum = 0.0;
+
+	id_DCT_reg.i = 0;
+	id_DCT_reg.i_prev = -1;
+	//	iq_DCT_reg.i = 0;
+	//	iq_DCT_reg.i_prev = -1;
+
+	clear_DCT_buffer_index = clear_DCT_buffer_index + 1;
+	if(clear_DCT_buffer_index >= id_DCT_reg.BufferHistoryLength - 1)
+	{
+		clear_DCT_buffer_index = 0;
+	}
+
+	// clear all outputs of DCT controllers
+	id_DCT_reg.Out = 0.0;
+//	iq_DCT_reg.Out = 0.0;
 }
 
 
@@ -2303,14 +2357,30 @@ void PER_int_setup(void)
     iq_REP_reg.OutMax = id_REP_reg.OutMax;
     iq_REP_reg.OutMin = id_REP_reg.OutMin;
 
+
     // initialize current DCT controller
-    DCT_REG_INIT_MACRO(id_DCT_reg);
-    id_DCT_reg.Kdct = 0.01; // 0.01
+
+    // FPU library FIR filter initialization - necessary for the DCT filter realization
+    id_DCT_reg.FIR_filter_float.cbindex = 0;
+    id_DCT_reg.FIR_filter_float.order = FIR_FILTER_NUMBER_OF_COEFF - 1;
+    id_DCT_reg.FIR_filter_float.input = 0.0;
+    id_DCT_reg.FIR_filter_float.output = 0.0;
+    id_DCT_reg.FIR_filter_float.init(&id_DCT_reg);
+
+    // initialize FPU library FIR filter pointers, which are pointing to the external FIR filter coefficient buffer and delay buffer
+    // IMPORTANT: THOSE TWO POINTERS ARE USED TO CHANGE THE BUFFERS VALUES WITHIN STRUCTURE!
+    //            INITIALZE THE POINTERS IN THE NEXT TWO LINES BEFORE CALLING ANY INITIZALIZING MACRO OR FUNCTION!
+    id_DCT_reg.FIR_filter_float.coeff_ptr = coeff1;
+    id_DCT_reg.FIR_filter_float.dbuffer_ptr = dbuffer1;
+
+    // initialize current DCT controller
+    DCT_REG_INIT_MACRO(id_DCT_reg); // initialize all variables and coefficients
+    id_DCT_reg.Kdct = 1e-3; // 0.01
     id_DCT_reg.ErrSumMax = 0.2;
     id_DCT_reg.ErrSumMin = -0.2;
     id_DCT_reg.OutMax = 0.1;
     id_DCT_reg.OutMin = -0.1;
-    DCT_REG_FIR_COEFF_CALC_MACRO(id_DCT_reg);
+    DCT_REG_FIR_COEFF_INIT_MACRO(id_DCT_reg); // set coefficents of the DCT filter
 
 /*
     DCT_REG_INIT_MACRO(iq_DCT_reg);
@@ -2321,11 +2391,10 @@ void PER_int_setup(void)
     iq_DCT_reg.OutMin = id_DCT_reg.OutMin;
     DCT_REG_FIR_COEFF_CALC_MACRO(iq_DCT_reg);
 */
-	// FIR generic filter initialization - necessary for the DCT controller
-	firFP.order = FIR_FILTER_NUMBER_OF_COEFF - 1;
-	firFP.dbuffer_ptr = dbuffer;
-	firFP.coeff_ptr = (float *)coeff;
-	firFP.init(&firFP);
+
+
+
+
 
 	// clear integral parts and outputs of all controllers
 	clear_controllers();
