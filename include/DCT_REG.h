@@ -4,10 +4,16 @@
 * AUTHOR:       Denis Sušin
 * START DATE:   29.8.2017
 * VERSION:      1.0
-* ADD:			FPU lib is used for realization of DCT (FIR) filter
 *
 * CHANGES :
-* VERSION   DATE        WHO             DETAIL
+* VERSION   DATE			WHO				DETAIL
+* 1.0       6.4.2016	Denis Sušin			Initial version
+* 1.1		21.8.2017	Denis Sušin			Corrections of comments and names of variables
+* 2.0		15.5.2019	Denis Sušin			Circular buffer compacted into function and
+* 											circular buffer indexes handling upgraded
+* 3.0		9.7.2019	Denis Sušin			FPU FIR filter struct implemented within DCT controller struct,
+* 											FIR coefficient buffer and delay buffer must be declared externally,
+*											however, the DCT controller manipulates with those two buffers.
 *
 ****************************************************************/
 
@@ -23,7 +29,7 @@
 
 
 // maximal length of buffer for saving history of accumulated error and number of coefficients for DCT (FIR) filter
-#define     FIR_FILTER_NUMBER_OF_COEFF   	1000
+#define     FIR_FILTER_NUMBER_OF_COEFF   	500
 
 // maximal length of harmonics array
 #define		LENGTH_OF_HARMONICS_ARRAY		3
@@ -102,6 +108,7 @@ typedef struct DCT_REG_FLOAT_STRUCT
     for(v.j = 0; v.j < FIR_FILTER_NUMBER_OF_COEFF; v.j++)   				\
     {                                                   					\
     	v.CorrectionHistory[v.j] = 0.0;                     				\
+    	*(v.FIR_filter_float.dbuffer_ptr + v.j) = 0.0;                   	\
     	*(v.FIR_filter_float.coeff_ptr + v.j) = 0.0;                   		\
     }                                                   					\
     v.j = 0;                                            					\

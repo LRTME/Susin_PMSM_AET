@@ -182,15 +182,15 @@ float			cas_izracuna_DCT_reg = 0.0;
 float dbuffer1[FIR_FILTER_NUMBER_OF_COEFF];
 // define the delay buffer for the FIR filter and place it in "firldb" section - needed for DCT controller realization
 #pragma DATA_SECTION(dbuffer1, "firldb")
-// align the delay buffer for max 2048 words (1024 float variables) - needed for DCT controller realization
-#pragma DATA_ALIGN (dbuffer1,0x800)
+// align the delay buffer for max 1024 words (512 float variables) - needed for DCT controller realization
+#pragma DATA_ALIGN (dbuffer1,0x400)
 
 // define the coeff buffer for the FIR filter with specifed length - needed for DCT controller realization
 float coeff1[FIR_FILTER_NUMBER_OF_COEFF];
 // define coefficient array and place it in "coefffilter" section - needed for DCT controller realization
 #pragma DATA_SECTION(coeff1, "coefffilt");
-// align the coefficent buffer for max 2048 words (1024 float coeff) - needed for DCT controller realization
-#pragma DATA_ALIGN (coeff1,0x800)
+// align the coefficent buffer for max 1024 words (512 float coeff) - needed for DCT controller realization
+#pragma DATA_ALIGN (coeff1,0x400)
 
 // speed PI controller
 float   Kp_speed_PI_reg = 3.0;  			// velja èe merimo napetost z ABF: Kp = 3.0
@@ -2246,6 +2246,9 @@ void PER_int_setup(void)
     ref_gen.samp_period = SAMPLE_TIME;
     
 
+
+
+
     // initialize current resonant controllers
 	id_RES_reg_1.Harmonic = 6;
 	id_RES_reg_1.Kres = 0.9*Ki_id_PI_reg;
@@ -2375,23 +2378,12 @@ void PER_int_setup(void)
 
     // initialize current DCT controller
     DCT_REG_INIT_MACRO(id_DCT_reg); // initialize all variables and coefficients
-    id_DCT_reg.Kdct = 1e-3; // 0.01
+    id_DCT_reg.Kdct = 0.01; // 0.01
     id_DCT_reg.ErrSumMax = 0.2;
     id_DCT_reg.ErrSumMin = -0.2;
     id_DCT_reg.OutMax = 0.1;
     id_DCT_reg.OutMin = -0.1;
     DCT_REG_FIR_COEFF_INIT_MACRO(id_DCT_reg); // set coefficents of the DCT filter
-
-/*
-    DCT_REG_INIT_MACRO(iq_DCT_reg);
-    iq_DCT_reg.Kdct = id_DCT_reg.Kdct; // 0.01
-    iq_DCT_reg.ErrSumMax = id_DCT_reg.ErrSumMax;
-    iq_DCT_reg.ErrSumMin = id_DCT_reg.ErrSumMin;
-    iq_DCT_reg.OutMax = id_DCT_reg.OutMax;
-    iq_DCT_reg.OutMin = id_DCT_reg.OutMin;
-    DCT_REG_FIR_COEFF_CALC_MACRO(iq_DCT_reg);
-*/
-
 
 
 

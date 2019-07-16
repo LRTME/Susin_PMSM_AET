@@ -6,7 +6,14 @@
 * VERSION:      1.0
 *
 * CHANGES :
-* VERSION   DATE        WHO             DETAIL
+* VERSION   DATE			WHO				DETAIL
+* 1.0       6.4.2016	Denis Sušin			Initial version
+* 1.1		21.8.2017	Denis Sušin			Corrections of comments and names of variables
+* 2.0		15.5.2019	Denis Sušin			Circular buffer compacted into function and
+* 											circular buffer indexes handling upgraded
+* 3.0		9.7.2019	Denis Sušin			FPU FIR filter struct implemented within DCT controller struct,
+* 											FIR coefficient buffer and delay buffer must be declared externally,
+*											however, the DCT controller manipulates with those two buffers.
 *
 ****************************************************************/
 
