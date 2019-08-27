@@ -3,17 +3,25 @@
 * DESCRIPTION:  DCT controller (regulator) which is reducing periodic disturbance
 * AUTHOR:       Denis Sušin
 * START DATE:   29.8.2017
-* VERSION:      1.0
+* VERSION:      3.3
 *
 * CHANGES :
-* VERSION   DATE			WHO				DETAIL
+* VERSION   DATE		WHO					DETAIL
 * 1.0       6.4.2016	Denis Sušin			Initial version
 * 1.1		21.8.2017	Denis Sušin			Corrections of comments and names of variables
 * 2.0		15.5.2019	Denis Sušin			Circular buffer compacted into function and
 * 											circular buffer indexes handling upgraded
 * 3.0		9.7.2019	Denis Sušin			FPU FIR filter struct implemented within DCT controller struct,
 * 											FIR coefficient buffer and delay buffer must be declared externally,
-*											however, the DCT controller manipulates with those two buffers.
+*											however, the DCT controller struct manipulates with those two buffers.
+* 3.1		18.7.2019   Denis Sušin			Minor changes to prevent unwanted changes to "k", right after initialization.
+*
+* 3.2		19.7.2019   Denis Sušin			Corrections to "i_delta" calculations. Before the function had bugs.
+*
+* 3.3		19.7.2019   Denis Sušin			Corrections to phase delay compensation "k". One additional sample must be
+*											compensated when calculating "index", because of calculation delay
+*											(one sample exactly). However, this extra sample must not be implemented in
+*											FIR (DCT) filter coefficients calculation.
 *
 ****************************************************************/
 
@@ -53,6 +61,12 @@ void DCT_REG_CALC (DCT_REG_float *v)
 		v->BufferHistoryLength = 0;
 	}
 
+	// toèno doloèena velikost krožnega pomnilnika in št. koeficientov FIR filtra
+	v->BufferHistoryLength = FIR_FILTER_NUMBER_OF_COEFF;
+
+
+
+
 	// omejitev kompenzacije zakasnitve, ki ne sme presegati dolžine bufferja
 	if (v->k > v->BufferHistoryLength)
 	{
@@ -63,14 +77,13 @@ void DCT_REG_CALC (DCT_REG_float *v)
 		v->k = -v->BufferHistoryLength;
 	}
 
+
+
+
 	// omejitev vzorènega signala med 0.0 in 0.9999
 	//(SamplingSignal ne sme biti enak ena, ker mora biti indeks i omejen od 0 do BufferHistoryLength-1)
 	v->SamplingSignal = (v->SamplingSignal > 0.99999)? 0.99999: v->SamplingSignal;
 	v->SamplingSignal = (v->SamplingSignal < 0.0)? 0.0: v->SamplingSignal;
-
-
-	// toèno doloèena velikost krožnega pomnilnika in št. koeficientov FIR filtra
-	v->BufferHistoryLength = FIR_FILTER_NUMBER_OF_COEFF;
 
 
 
@@ -95,6 +108,9 @@ void DCT_REG_CALC (DCT_REG_float *v)
 		FIR_FILTER_COEFF_CALC(v);
 	}
 
+
+
+
 	// zapis trenutnih vrednosti, ki bodo v naslednji iteraciji že zgodovina
 	v->k_old = v->k;
 	v->SumOfHarmonicsOld = v->SumOfHarmonics;
@@ -109,13 +125,13 @@ void DCT_REG_CALC (DCT_REG_float *v)
 
 
 	// èe se indeks spremeni, potem gre algoritem dalje:
-	//   1. èe je "SamplingSignal" zunaj te funkcije natanèno sinhroniziran z vzorèno frekvenco ("i_delta" = 1)
+	//   1. èe je "SamplingSignal" zunaj te funkcije natanèno sinhroniziran z vzorèno frekvenco (|i_delta| = 1)
 	//      se algoritem izvajanja repetitivnega regulatorja izvede vsako vzorèno periodo/interval in se
 	//      izkoristi celotna velikost pomnilnika, kar je optimalno
-	//   2. èe je "SamplingSignal" prepoèasen ("i_delta" < 1) oz. osnovna frekvenca reguliranega signala prenizka,
+	//   2. èe je "SamplingSignal" prepoèasen (|i_delta| < 1) oz. osnovna frekvenca reguliranega signala prenizka,
 	//      ni nujno, da se algoritem izvajanja repetitivnega regulatorja izvede vsako vzorèno periodo/interval,
 	//      kar pomeni, da ta algoritem lahko deluje s frekvenco nižjo od vzorène frekvence
-	//   3. èe je "SamplingSignal" prehiter ("i_delta" > 1), oz. osnovna frekvenca reguliranega signala previsoka,
+	//   3. èe je "SamplingSignal" prehiter (|i_delta| > 1), oz. osnovna frekvenca reguliranega signala previsoka,
 	//      se algoritem izvajanja repetitivnega regulatorja izvede vsako vzorèno periodo/interval,
 	//      a se velikost pomnilnika umetno zmanjša za faktor "i_delta", saj zapisujemo in beremo le vsak "i_delta"-ti vzorec,
 	//      kar pomeni, kot da bi bila velikost pomnilnika manjša za faktor "i_delta"
@@ -131,7 +147,7 @@ void DCT_REG_CALC (DCT_REG_float *v)
 		// manipuliranje z indeksi - zaradi circular bufferja; èe indeks narašèa - inkrementiranje
 		if ( (v->i < v->i_prev) && (v->i_delta < -(v->BufferHistoryLength >> 1)) )
 		{
-			v->i_delta = v->BufferHistoryLength - v->i_delta;
+			v->i_delta = v->BufferHistoryLength + v->i_delta;
 		}
 		// manipuliranje z indeksi - zaradi circular bufferja; èe indeks pada - dekrementiranje
 		else if ( (v->i > v->i_prev) && (v->i_delta > (v->BufferHistoryLength >> 1)) )
@@ -141,15 +157,23 @@ void DCT_REG_CALC (DCT_REG_float *v)
 
 
 		// èe funkcionalnost umetnega zmanjševanja velikosti pomnilnika ni zaželena ali ni potrebna (opis pod toèko 3.),
-		// odkomentiraj naslednjo vrstico
-		v->i_delta = 1;
+		// odkomentiraj naslednji blok programske kode
+		if(v->i_delta > 1)
+		{
+			v->i_delta = 1;
+		}
+		if(v->i_delta < -1)
+		{
+			v->i_delta = -1;
+		}
+
 
 
 
 		// manipuliranje z indeksi - zaradi circular bufferja
 		// OPOMBA: v->k se mora izjemoma odšteti, saj je nasproten predznak pri kompenzaciji zakasnitve "k" tudi
 		//         pri izraèunu koeficientov DCT filtra
-		v->index = circular_buffer_transformation2(v->i - v->k*v->i_delta,v->BufferHistoryLength);
+		v->index = circular_buffer_transformation2(v->i - (v->k + 1)*v->i_delta,v->BufferHistoryLength);
 
 
 

@@ -112,7 +112,7 @@ float	pot_rel_discrete_old = 0.0;
 
 /* control algorithm variables */
 // general variables
-float	SamplingSignal_20Hz = 0.0;
+float	SamplingSignal_40Hz = 0.0;
 
 float	duty_DC = 0.0;
 float	duty_sinewave = 0.0;
@@ -321,11 +321,12 @@ void interrupt PER_int(void)
     }
 
 
-    // Sampling signal generation, which is integral of constant frequency f = 20 Hz - limited [0,1)
-    SamplingSignal_20Hz = SamplingSignal_20Hz + 20.0 * 1.0/SAMPLE_FREQ;
-    if (SamplingSignal_20Hz > 1.0)
+    // Sampling signal generation, which is integral of constant frequency f = 40 Hz - limited [0,1)
+    //SamplingSignal_40Hz = SamplingSignal_40Hz + 40.0 * 1.0/SAMPLE_FREQ;
+    SamplingSignal_40Hz = SamplingSignal_40Hz + 40.0 * 1.0/SAMPLE_FREQ;
+    if (SamplingSignal_40Hz > 1.0)
     {
-    	SamplingSignal_20Hz = SamplingSignal_20Hz - 1.0;
+    	SamplingSignal_40Hz = SamplingSignal_40Hz - 1.0;
     }
 
     // reference value generator
@@ -1305,7 +1306,7 @@ void open_loop_control(void)
 	}
 	else if(modulation == SINGLE_PHASE_SINE)
 	{
-		duty_sinewave = direction*pot_rel*sin(2.0 * PI * SamplingSignal_20Hz);
+		duty_sinewave = direction*pot_rel*sin(2.0 * PI * SamplingSignal_40Hz);
 	}
 	else if(modulation == SINGLE_PHASE_DC)
 	{
@@ -1586,16 +1587,16 @@ void advanced_current_loop_control(void)
 	{
 		if(auto_calc_of_advanced_reg_params == TRUE)
 		{
-
+			id_DCT_reg.k = atan2(2*PI*speed_meh_CAP*Ld,Rs)/(2*PI)*id_DCT_reg.BufferHistoryLength;
 		}
 
 		// izracun DCT reg. - d os
 		id_DCT_reg.Ref = tok_d_ref;
 		id_DCT_reg.Fdb = tok_d;
 		id_DCT_reg.SamplingSignal = kot_el;
-//		id_DCT_reg.Ref = 1.0 * cos(2.0 * PI * SamplingSignal_20Hz) + 1.0 * cos(2.0 * PI * 6.0* SamplingSignal_20Hz);
+//		id_DCT_reg.Ref = 1.0 * cos(2.0 * PI * SamplingSignal_40Hz) + 1.0 * cos(2.0 * PI * 6.0* SamplingSignal_40Hz);
 //		id_DCT_reg.Fdb = 0.0;
-//		id_DCT_reg.SamplingSignal = SamplingSignal_20Hz;
+//		id_DCT_reg.SamplingSignal = SamplingSignal_40Hz;
 
 		TIC_start_1();
 
@@ -1792,9 +1793,9 @@ void advanced_current_loop_control(void)
 		// iq_DCT_reg.Ref = tok_q_ref;
 		// iq_DCT_reg.Fdb = tok_q;
 		// iq_DCT_reg.SamplingSignal = kot_el;
-		iq_DCT_reg.Ref = 1.0 * cos(2 * PI * SamplingSignal_20Hz);
-		iq_DCT_reg.Fdb = 0.0 * cos(2 * PI * SamplingSignal_20Hz);
-		iq_DCT_reg.SamplingSignal = SamplingSignal_20Hz;
+		iq_DCT_reg.Ref = 1.0 * cos(2 * PI * SamplingSignal_40Hz);
+		iq_DCT_reg.Fdb = 0.0 * cos(2 * PI * SamplingSignal_40Hz);
+		iq_DCT_reg.SamplingSignal = SamplingSignal_40Hz;
 
 		TIC_start_1();
 
@@ -1833,8 +1834,6 @@ void advanced_current_loop_control(void)
 		case DCT:
 			advanced_id_reg_out = id_DCT_reg.Out;
 //			advanced_iq_reg_out = iq_DCT_reg.Out;
-
-			advanced_id_reg_out = 0.0;
 			advanced_iq_reg_out = 0.0;
 			break;
 		default:
@@ -2227,7 +2226,7 @@ void PER_int_setup(void)
     dlog.downsample_ratio = 10;
 
     dlog.slope = Positive;
-    dlog.trig = &kot_meh;
+    dlog.trig = &kot_el;
     dlog.trig_level = 0.01;
 
     dlog.iptr1 = &tok_d;
@@ -2379,8 +2378,8 @@ void PER_int_setup(void)
     // initialize current DCT controller
     DCT_REG_INIT_MACRO(id_DCT_reg); // initialize all variables and coefficients
     id_DCT_reg.Kdct = 0.01; // 0.01
-    id_DCT_reg.ErrSumMax = 0.2;
-    id_DCT_reg.ErrSumMin = -0.2;
+    id_DCT_reg.ErrSumMax = 10.0;
+    id_DCT_reg.ErrSumMin = -10.0;
     id_DCT_reg.OutMax = 0.1;
     id_DCT_reg.OutMin = -0.1;
     DCT_REG_FIR_COEFF_INIT_MACRO(id_DCT_reg); // set coefficents of the DCT filter

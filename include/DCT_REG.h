@@ -3,17 +3,25 @@
 * DESCRIPTION:  DCT controller (regulator) which is reducing periodic disturbance
 * AUTHOR:       Denis Sušin
 * START DATE:   29.8.2017
-* VERSION:      1.0
+* VERSION:      3.3
 *
 * CHANGES :
-* VERSION   DATE			WHO				DETAIL
+* VERSION   DATE		WHO					DETAIL
 * 1.0       6.4.2016	Denis Sušin			Initial version
 * 1.1		21.8.2017	Denis Sušin			Corrections of comments and names of variables
 * 2.0		15.5.2019	Denis Sušin			Circular buffer compacted into function and
 * 											circular buffer indexes handling upgraded
 * 3.0		9.7.2019	Denis Sušin			FPU FIR filter struct implemented within DCT controller struct,
 * 											FIR coefficient buffer and delay buffer must be declared externally,
-*											however, the DCT controller manipulates with those two buffers.
+*											however, the DCT controller struct manipulates with those two buffers.
+* 3.1		18.7.2019   Denis Sušin			Minor changes to prevent unwanted changes to "k", right after initialization.
+*
+* 3.2		19.7.2019   Denis Sušin			Corrections to "i_delta" calculations. Before the function had bugs.
+*
+* 3.3		19.7.2019   Denis Sušin			Corrections to phase delay compensation "k". One additional sample must be
+*											compensated when calculating "index", because of calculation delay
+*											(one sample exactly). However, this extra sample must not be implemented in
+*											FIR (DCT) filter coefficients calculation.
 *
 ****************************************************************/
 
@@ -34,12 +42,7 @@
 // maximal length of harmonics array
 #define		LENGTH_OF_HARMONICS_ARRAY		3
 // harmonics selection at the begining that passes through DCT filter (i.e. "{1,5,7}" means that 1st, 5th and 7th harmonic passes through DCT filter, others are blocked)
-#define		SELECTED_HARMONICS				{1,0,0}
-
-/* create (declare) delay buffer (array) for FIR filter realization */
-extern float dbuffer[FIR_FILTER_NUMBER_OF_COEFF];
-/* create (declare) coefficent buffer (array) for FIR (DCT) filter realization */
-extern float coeff[FIR_FILTER_NUMBER_OF_COEFF];
+#define		SELECTED_HARMONICS				{1, 0, 0}
 
 
 typedef struct DCT_REG_FLOAT_STRUCT
@@ -105,6 +108,8 @@ typedef struct DCT_REG_FLOAT_STRUCT
 
 #define DCT_REG_INIT_MACRO(v)                          						\
 {                                                       					\
+	v.BufferHistoryLength = FIR_FILTER_NUMBER_OF_COEFF;						\
+																			\
     for(v.j = 0; v.j < FIR_FILTER_NUMBER_OF_COEFF; v.j++)   				\
     {                                                   					\
     	v.CorrectionHistory[v.j] = 0.0;                     				\
@@ -130,7 +135,7 @@ typedef struct DCT_REG_FLOAT_STRUCT
 		{																									\
         	if(v.HarmonicsBuffer[v.i] != 0)																	\
 			{																								\
-        		*(v.FIR_filter_float.coeff_ptr + v.j) = *(v.FIR_filter_float.coeff_ptr + v.j) + 									\
+        		*(v.FIR_filter_float.coeff_ptr + v.j) = *(v.FIR_filter_float.coeff_ptr + v.j) + 			\
 							 2.0/FIR_FILTER_NUMBER_OF_COEFF *  												\
 							 cos( 2 * PI * v.HarmonicsBuffer[v.i] * 										\
 							 ( (float)(v.j - v.k) ) / (FIR_FILTER_NUMBER_OF_COEFF) );						\
