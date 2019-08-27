@@ -174,23 +174,37 @@ float			cas_izracuna_REP_reg = 0.0;
 
 // advanced current discrete cosinus transform (DCT) controller
 DCT_REG_float	id_DCT_reg = DCT_REG_FLOAT_DEFAULTS;
-//DCT_REG_float	iq_DCT_reg = DCT_REG_FLOAT_DEFAULTS;
+DCT_REG_float	iq_DCT_reg = DCT_REG_FLOAT_DEFAULTS;
 int 			clear_DCT_buffer_index = 0;
 float			cas_izracuna_DCT_reg = 0.0;
 
 // define the delay buffer for the FIR filter with specifed length - needed for DCT controller realization
 float dbuffer1[FIR_FILTER_NUMBER_OF_COEFF];
 // define the delay buffer for the FIR filter and place it in "firldb" section - needed for DCT controller realization
-#pragma DATA_SECTION(dbuffer1, "firldb")
+#pragma DATA_SECTION(dbuffer1, "firldb1")
 // align the delay buffer for max 1024 words (512 float variables) - needed for DCT controller realization
 #pragma DATA_ALIGN (dbuffer1,0x400)
 
 // define the coeff buffer for the FIR filter with specifed length - needed for DCT controller realization
 float coeff1[FIR_FILTER_NUMBER_OF_COEFF];
 // define coefficient array and place it in "coefffilter" section - needed for DCT controller realization
-#pragma DATA_SECTION(coeff1, "coefffilt");
+#pragma DATA_SECTION(coeff1, "coefffilt1");
 // align the coefficent buffer for max 1024 words (512 float coeff) - needed for DCT controller realization
 #pragma DATA_ALIGN (coeff1,0x400)
+
+// define the delay buffer for the FIR filter with specifed length - needed for DCT controller realization
+float dbuffer2[FIR_FILTER_NUMBER_OF_COEFF];
+// define the delay buffer for the FIR filter and place it in "firldb" section - needed for DCT controller realization
+#pragma DATA_SECTION(dbuffer2, "firldb2")
+// align the delay buffer for max 1024 words (512 float variables) - needed for DCT controller realization
+#pragma DATA_ALIGN (dbuffer2,0x400)
+
+// define the coeff buffer for the FIR filter with specifed length - needed for DCT controller realization
+float coeff2[FIR_FILTER_NUMBER_OF_COEFF];
+// define coefficient array and place it in "coefffilter" section - needed for DCT controller realization
+#pragma DATA_SECTION(coeff2, "coefffilt2");
+// align the coefficent buffer for max 1024 words (512 float coeff) - needed for DCT controller realization
+#pragma DATA_ALIGN (coeff2,0x400)
 
 // speed PI controller
 float   Kp_speed_PI_reg = 3.0;  			// velja èe merimo napetost z ABF: Kp = 3.0
@@ -1594,9 +1608,6 @@ void advanced_current_loop_control(void)
 		id_DCT_reg.Ref = tok_d_ref;
 		id_DCT_reg.Fdb = tok_d;
 		id_DCT_reg.SamplingSignal = kot_el;
-//		id_DCT_reg.Ref = 1.0 * cos(2.0 * PI * SamplingSignal_40Hz) + 1.0 * cos(2.0 * PI * 6.0* SamplingSignal_40Hz);
-//		id_DCT_reg.Fdb = 0.0;
-//		id_DCT_reg.SamplingSignal = SamplingSignal_40Hz;
 
 		TIC_start_1();
 
@@ -1786,16 +1797,13 @@ void advanced_current_loop_control(void)
 	{
 		if(auto_calc_of_advanced_reg_params == TRUE)
 		{
-
+			iq_DCT_reg.k = atan2(2*PI*speed_meh_CAP*Lq,Rs)/(2*PI)*iq_DCT_reg.BufferHistoryLength;
 		}
-/*
-		// izracun DCT reg. - q os
-		// iq_DCT_reg.Ref = tok_q_ref;
-		// iq_DCT_reg.Fdb = tok_q;
-		// iq_DCT_reg.SamplingSignal = kot_el;
-		iq_DCT_reg.Ref = 1.0 * cos(2 * PI * SamplingSignal_40Hz);
-		iq_DCT_reg.Fdb = 0.0 * cos(2 * PI * SamplingSignal_40Hz);
-		iq_DCT_reg.SamplingSignal = SamplingSignal_40Hz;
+
+		// izracun DCT reg. - d os
+		iq_DCT_reg.Ref = tok_q_ref;
+		iq_DCT_reg.Fdb = tok_q;
+		iq_DCT_reg.SamplingSignal = kot_el;
 
 		TIC_start_1();
 
@@ -1803,7 +1811,7 @@ void advanced_current_loop_control(void)
 
 		TIC_stop_1();
 		cas_izracuna_DCT_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
-*/	}// end of else if(advanced_current_reg_type == DCT)
+	}// end of else if(advanced_current_reg_type == DCT)
 
 
 
@@ -1833,8 +1841,7 @@ void advanced_current_loop_control(void)
 			break;
 		case DCT:
 			advanced_id_reg_out = id_DCT_reg.Out;
-//			advanced_iq_reg_out = iq_DCT_reg.Out;
-			advanced_iq_reg_out = 0.0;
+			advanced_iq_reg_out = iq_DCT_reg.Out;
 			break;
 		default:
 			advanced_id_reg_out = 0.0;
@@ -2152,20 +2159,20 @@ void clear_advanced_controllers(void)
 	// CAUTION: THE FACT IS THAT SOME TIME MUST BE SPEND TO CLEAR THE WHOLE BUFFER (ONE IN EACH ITERATION),
 	//          WHICH IS TYPICAL LESS THAN 1 SEC!
 	id_DCT_reg.CorrectionHistory[clear_DCT_buffer_index] = 0.0;
-	//	iq_DCT_reg.CorrectionHistory[clear_DCT_buffer_index] = 0.0;
+	iq_DCT_reg.CorrectionHistory[clear_DCT_buffer_index] = 0.0;
 
 	// CAUTION: THE FACT IS THAT SOME TIME MUST BE SPEND TO CLEAR THE WHOLE BUFFER (ONE IN EACH ITERATION),
 	//          WHICH IS TYPICAL LESS THAN 1 SEC!
 	dbuffer1[clear_DCT_buffer_index] = 0.0;
-	//	dbuffer2[clear_DCT_buffer_index] = 0.0;
+	dbuffer2[clear_DCT_buffer_index] = 0.0;
 
 	id_DCT_reg.ErrSum = 0.0;
-//	iq_DCT_reg.ErrSum = 0.0;
+	iq_DCT_reg.ErrSum = 0.0;
 
 	id_DCT_reg.i = 0;
 	id_DCT_reg.i_prev = -1;
-	//	iq_DCT_reg.i = 0;
-	//	iq_DCT_reg.i_prev = -1;
+	iq_DCT_reg.i = 0;
+	iq_DCT_reg.i_prev = -1;
 
 	clear_DCT_buffer_index = clear_DCT_buffer_index + 1;
 	if(clear_DCT_buffer_index >= id_DCT_reg.BufferHistoryLength - 1)
@@ -2175,7 +2182,7 @@ void clear_advanced_controllers(void)
 
 	// clear all outputs of DCT controllers
 	id_DCT_reg.Out = 0.0;
-//	iq_DCT_reg.Out = 0.0;
+	iq_DCT_reg.Out = 0.0;
 }
 
 
@@ -2384,7 +2391,27 @@ void PER_int_setup(void)
     id_DCT_reg.OutMin = -0.1;
     DCT_REG_FIR_COEFF_INIT_MACRO(id_DCT_reg); // set coefficents of the DCT filter
 
+    // FPU library FIR filter initialization - necessary for the DCT filter realization
+    iq_DCT_reg.FIR_filter_float.cbindex = 0;
+    iq_DCT_reg.FIR_filter_float.order = FIR_FILTER_NUMBER_OF_COEFF - 1;
+    iq_DCT_reg.FIR_filter_float.input = 0.0;
+    iq_DCT_reg.FIR_filter_float.output = 0.0;
+    iq_DCT_reg.FIR_filter_float.init(&iq_DCT_reg);
 
+    // initialize FPU library FIR filter pointers, which are pointing to the external FIR filter coefficient buffer and delay buffer
+    // IMPORTANT: THOSE TWO POINTERS ARE USED TO CHANGE THE BUFFERS VALUES WITHIN STRUCTURE!
+    //            INITIALZE THE POINTERS IN THE NEXT TWO LINES BEFORE CALLING ANY INITIZALIZING MACRO OR FUNCTION!
+    iq_DCT_reg.FIR_filter_float.coeff_ptr = coeff2;
+    iq_DCT_reg.FIR_filter_float.dbuffer_ptr = dbuffer2;
+
+    // initialize current DCT controller
+    DCT_REG_INIT_MACRO(iq_DCT_reg); // initialize all variables and coefficients
+    iq_DCT_reg.Kdct = 0.01; // 0.01
+    iq_DCT_reg.ErrSumMax = 10.0;
+    iq_DCT_reg.ErrSumMin = -10.0;
+    iq_DCT_reg.OutMax = 0.1;
+    iq_DCT_reg.OutMin = -0.1;
+    DCT_REG_FIR_COEFF_INIT_MACRO(iq_DCT_reg); // set coefficents of the DCT filter
 
 
 	// clear integral parts and outputs of all controllers

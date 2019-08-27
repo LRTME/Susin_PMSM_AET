@@ -42,7 +42,7 @@
 // maximal length of harmonics array
 #define		LENGTH_OF_HARMONICS_ARRAY		3
 // harmonics selection at the begining that passes through DCT filter (i.e. "{1,5,7}" means that 1st, 5th and 7th harmonic passes through DCT filter, others are blocked)
-#define		SELECTED_HARMONICS				{1, 0, 0}
+#define		SELECTED_HARMONICS				{1, 6, 12}
 
 
 typedef struct DCT_REG_FLOAT_STRUCT
