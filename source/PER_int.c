@@ -14,13 +14,15 @@
 volatile enum	MODULATION modulation = SVM;
 volatile enum	CONTROL control = OPEN_LOOP;
 
-volatile enum	{NONE, RES, RES_multiple, REP, DCT} advanced_current_reg_type = NONE;
+volatile enum	{NONE, RES, RES_multiple, REP, DCT, dual_DCT} advanced_current_reg_type = NONE;
 
 bool			control_enable = FALSE;
 
-bool			enable_advanced_current_reg = FALSE;
+bool			enable_advanced_current_reg = TRUE;
 
-bool			auto_calc_of_advanced_reg_params = FALSE;
+bool			enable_advanced_speed_reg = FALSE;
+
+bool			auto_calc_of_advanced_reg_params = TRUE;
 
 /**************************************************************************
  * End of user interface
@@ -112,7 +114,7 @@ float	pot_rel_discrete_old = 0.0;
 
 /* control algorithm variables */
 // general variables
-float	SamplingSignal_40Hz = 0.0;
+float	SamplingSignal_50Hz = 0.0;
 
 float	duty_DC = 0.0;
 float	duty_sinewave = 0.0;
@@ -136,6 +138,7 @@ PI_ctrl			speed_PI_reg = PI_CTRL_DEFAULTS;
 PID_ctrl		position_PID_reg = PI_CTRL_DEFAULTS;
 float			advanced_id_reg_out = 0.0;
 float			advanced_iq_reg_out = 0.0;
+float			advanced_speed_reg_out = 0.0;
 
 // current PI controller
 float   Kp_id_PI_reg = 0.015;    	  		// Vdc = 12V: 0.03            	Vdc = 24V: 0.015
@@ -206,9 +209,50 @@ float coeff2[FIR_FILTER_NUMBER_OF_COEFF];
 // align the coefficent buffer for max 1024 words (512 float coeff) - needed for DCT controller realization
 #pragma DATA_ALIGN (coeff2,0x400)
 
+// advanced current dual discrete cosinus transform (dual DCT) controllerc
+dual_DCT_REG_float	id_dual_DCT_reg = dual_DCT_REG_FLOAT_DEFAULTS;
+int 			clear_dual_DCT_buffer_index = 0;
+float			cas_izracuna_dual_DCT_reg = 0.0;
+
+// define the delay buffer for the FIR filter with specifed length - needed for DCT controller realization
+float dual_DCT_dbuffer1[FIR_FILTER_NUMBER_OF_COEFF];
+// define the delay buffer for the FIR filter and place it in "firldb" section - needed for DCT controller realization
+#pragma DATA_SECTION(dual_DCT_dbuffer1, "dual_DCT_firldb1")
+// align the delay buffer for max 1024 words (512 float variables) - needed for DCT controller realization
+#pragma DATA_ALIGN (dual_DCT_dbuffer1,0x400)
+
+// define the coeff buffer for the FIR filter with specifed length - needed for DCT controller realization
+float dual_DCT_coeff1[FIR_FILTER_NUMBER_OF_COEFF];
+// define coefficient array and place it in "coefffilter" section - needed for DCT controller realization
+#pragma DATA_SECTION(dual_DCT_coeff1, "dual_DCT_coefffilt1");
+// align the coefficent buffer for max 1024 words (512 float coeff) - needed for DCT controller realization
+#pragma DATA_ALIGN (dual_DCT_coeff1,0x400)
+
+// define the delay buffer for the FIR filter with specifed length - needed for DCT controller realization
+float dual_DCT_dbuffer2[FIR_FILTER_NUMBER_OF_COEFF];
+// define the delay buffer for the FIR filter and place it in "firldb" section - needed for DCT controller realization
+#pragma DATA_SECTION(dual_DCT_dbuffer2, "dual_DCT_firldb2")
+// align the delay buffer for max 1024 words (512 float variables) - needed for DCT controller realization
+#pragma DATA_ALIGN (dual_DCT_dbuffer2,0x400)
+
+// define the coeff buffer for the FIR filter with specifed length - needed for DCT controller realization
+float dual_DCT_coeff2[FIR_FILTER_NUMBER_OF_COEFF];
+// define coefficient array and place it in "coefffilter" section - needed for DCT controller realization
+#pragma DATA_SECTION(dual_DCT_coeff2, "dual_DCT_coefffilt1");
+// align the coefficent buffer for max 1024 words (512 float coeff) - needed for DCT controller realization
+#pragma DATA_ALIGN (dual_DCT_coeff2,0x400)
+
+
 // speed PI controller
 float   Kp_speed_PI_reg = 3.0;  			// velja èe merimo napetost z ABF: Kp = 3.0
 float   Ki_speed_PI_reg = 5e-4;  			// velja èe merimo napetost z ABF: Ki = 5e-4 (agresivno delovanje)
+
+// advanced speed multiple resonant (RES) controllers
+RES_REG_float	speed_RES_reg_1 = RES_REG_FLOAT_DEFAULTS;
+RES_REG_float	speed_RES_reg_2 = RES_REG_FLOAT_DEFAULTS;
+RES_REG_float	speed_RES_reg_3 = RES_REG_FLOAT_DEFAULTS;
+RES_REG_float	speed_RES_reg_4 = RES_REG_FLOAT_DEFAULTS;
+RES_REG_float	speed_RES_reg_5 = RES_REG_FLOAT_DEFAULTS;
 
 // position PID controller
 float   Kp_position_PID_reg = 200.0;  		// velja, èe ni hitrostne zanke Kp = 200.0
@@ -296,7 +340,8 @@ void	speed_loop_control(void);
 void	position_loop_control(void);
 void	trip_reset(void);
 void 	clear_controllers(void);
-void 	clear_advanced_controllers(void);
+void 	clear_advanced_current_reg(void);
+void 	clear_advanced_speed_reg(void);
 float	phase_lag_comp_calc(float phase_lag_freq);
 
 /**************************************************************
@@ -335,12 +380,11 @@ void interrupt PER_int(void)
     }
 
 
-    // Sampling signal generation, which is integral of constant frequency f = 40 Hz - limited [0,1)
-    //SamplingSignal_40Hz = SamplingSignal_40Hz + 40.0 * 1.0/SAMPLE_FREQ;
-    SamplingSignal_40Hz = SamplingSignal_40Hz + 40.0 * 1.0/SAMPLE_FREQ;
-    if (SamplingSignal_40Hz > 1.0)
+    // Sampling signal generation, which is integral of constant frequency f = 50 Hz - limited [0,1)
+    SamplingSignal_50Hz = SamplingSignal_50Hz + 50.0 * 1.0/SAMPLE_FREQ;
+    if (SamplingSignal_50Hz > 1.0)
     {
-    	SamplingSignal_40Hz = SamplingSignal_40Hz - 1.0;
+    	SamplingSignal_50Hz = SamplingSignal_50Hz - 1.0;
     }
 
     // reference value generator
@@ -1320,7 +1364,7 @@ void open_loop_control(void)
 	}
 	else if(modulation == SINGLE_PHASE_SINE)
 	{
-		duty_sinewave = direction*pot_rel*sin(2.0 * PI * SamplingSignal_40Hz);
+		duty_sinewave = direction*pot_rel*sin(2.0 * PI * SamplingSignal_50Hz);
 	}
 	else if(modulation == SINGLE_PHASE_DC)
 	{
@@ -1390,7 +1434,7 @@ void current_loop_control(void)
 		{
 			advanced_id_reg_out = 0.0;
 			advanced_iq_reg_out = 0.0;
-			clear_advanced_controllers();
+			clear_advanced_current_reg();
 		}
 
 
@@ -1616,6 +1660,26 @@ void advanced_current_loop_control(void)
 		TIC_stop_1();
 		cas_izracuna_DCT_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
 	}// end of else if(advanced_current_reg_type == DCT)
+	else if(advanced_current_reg_type == dual_DCT)
+	{
+		if(auto_calc_of_advanced_reg_params == TRUE)
+		{
+
+		}
+
+		// izracun dvojnega DCT reg. - d os
+		id_dual_DCT_reg.Ref = tok_d_ref;
+		id_dual_DCT_reg.Fdb = tok_d;
+		id_dual_DCT_reg.SamplingSignal = kot_el;
+//		id_dual_DCT_reg.Ref = 1.0 * cos(2.0 * PI * SamplingSignal_50Hz) + 1.0 * cos(2.0 * PI * 6.0 * SamplingSignal_50Hz);
+//		id_dual_DCT_reg.Fdb = 0.0;
+//		id_dual_DCT_reg.SamplingSignal = SamplingSignal_50Hz;
+
+		dual_DCT_REG_CALC(&id_dual_DCT_reg);
+
+		TIC_stop_1();
+		cas_izracuna_dual_DCT_reg = (float) TIC_time_1 * 1.0/CPU_FREQ;
+	}// end of else if(advanced_current_reg_type == DCT)
 
 
 
@@ -1825,7 +1889,7 @@ void advanced_current_loop_control(void)
 		case NONE:
 			advanced_id_reg_out = 0.0;
 			advanced_iq_reg_out = 0.0;
-			clear_advanced_controllers();
+			clear_advanced_current_reg();
 			break;
 		case RES:
 			advanced_id_reg_out = id_RES_reg_1.Out;
@@ -1843,10 +1907,14 @@ void advanced_current_loop_control(void)
 			advanced_id_reg_out = id_DCT_reg.Out;
 			advanced_iq_reg_out = iq_DCT_reg.Out;
 			break;
+		case dual_DCT:
+			advanced_id_reg_out = id_dual_DCT_reg.Out;
+//			advanced_iq_reg_out = iq_dual_DCT_reg.Out;
+			break;
 		default:
 			advanced_id_reg_out = 0.0;
 			advanced_iq_reg_out = 0.0;
-			clear_advanced_controllers();
+			clear_advanced_current_reg();
 		} // end of switch(advanced_current_reg_type)
 
 	} // if(enable_advanced_current_reg != FALSE)
@@ -1893,7 +1961,45 @@ void speed_loop_control(void)
 			speed_PI_reg.OutMin = tok_q_ref_min;
 			PI_ctrl_calc(&speed_PI_reg);
 
-			tok_q_ref = speed_PI_reg.Out;
+			// hitrostna napredna (RES, RES_multiple, REP ali DCT) regulacija
+			speed_RES_reg_1.Ref = speed_meh_ref;
+			speed_RES_reg_1.Fdb = speed_meh_CAP;
+			speed_RES_reg_1.Angle = kot_meh;
+			RES_REG_CALC(speed_RES_reg_1);
+
+			speed_RES_reg_2.Ref = speed_meh_ref;
+			speed_RES_reg_2.Fdb = speed_meh_CAP;
+			speed_RES_reg_2.Angle = kot_meh;
+			RES_REG_CALC(speed_RES_reg_2);
+
+			speed_RES_reg_3.Ref = speed_meh_ref;
+			speed_RES_reg_3.Fdb = speed_meh_CAP;
+			speed_RES_reg_3.Angle = kot_meh;
+			RES_REG_CALC(speed_RES_reg_3);
+
+			speed_RES_reg_4.Ref = speed_meh_ref;
+			speed_RES_reg_4.Fdb = speed_meh_CAP;
+			speed_RES_reg_4.Angle = kot_meh;
+			RES_REG_CALC(speed_RES_reg_4);
+
+			speed_RES_reg_5.Ref = speed_meh_ref;
+			speed_RES_reg_5.Fdb = speed_meh_CAP;
+			speed_RES_reg_5.Angle = kot_meh;
+			RES_REG_CALC(speed_RES_reg_5);
+
+			if(enable_advanced_speed_reg == TRUE)
+			{
+				advanced_speed_reg_out = speed_RES_reg_1.Out + speed_RES_reg_2.Out + \
+										 speed_RES_reg_3.Out + speed_RES_reg_4.Out + \
+										 speed_RES_reg_5.Out;
+			}
+			else
+			{
+				advanced_speed_reg_out = 0.0;
+				clear_advanced_speed_reg();
+			}
+
+			tok_q_ref = speed_PI_reg.Out + advanced_speed_reg_out;
 
 			// tokovna PI regulacija
 			current_loop_control();
@@ -1992,6 +2098,7 @@ void trip_reset(void)
 
 	control_enable = FALSE;
 	enable_advanced_current_reg = FALSE;
+	enable_advanced_speed_reg = FALSE;
 	auto_calc_of_advanced_reg_params = FALSE;
 
 	// clear all flags except next two
@@ -2073,7 +2180,8 @@ void clear_controllers(void)
 	speed_PI_reg.Out = 0.0;
 	position_PID_reg.Out = 0.0;
 
-	clear_advanced_controllers();
+	clear_advanced_current_reg();
+	clear_advanced_speed_reg();
 }
 
 
@@ -2083,7 +2191,7 @@ void clear_controllers(void)
 * Function, which clears integral parts and outputs of
 * advaced current controllers
 **************************************************************/
-void clear_advanced_controllers(void)
+void clear_advanced_current_reg(void)
 {
 	// clear all integral parts of resonant controllers
 	id_RES_reg_1.Ui1 = 0.0;
@@ -2124,8 +2232,6 @@ void clear_advanced_controllers(void)
 	iq_RES_reg_5.Out = 0.0;
 	id_RES_reg_6.Out = 0.0;
 	iq_RES_reg_6.Out = 0.0;
-
-
 	
 
 	// clear all integral parts of repetitive controller
@@ -2183,6 +2289,65 @@ void clear_advanced_controllers(void)
 	// clear all outputs of DCT controllers
 	id_DCT_reg.Out = 0.0;
 	iq_DCT_reg.Out = 0.0;
+
+
+
+
+	// clear all integral parts of dual DCT controller
+	// CAUTION: THE FACT IS THAT SOME TIME MUST BE SPEND TO CLEAR THE WHOLE BUFFER (ONE IN EACH ITERATION),
+	//          WHICH IS TYPICAL LESS THAN 1 SEC!
+	dual_DCT_dbuffer1[clear_dual_DCT_buffer_index] = 0.0;
+	dual_DCT_dbuffer2[clear_dual_DCT_buffer_index] = 0.0;
+//	dual_DCT_dbuffer3[clear_dual_DCT_buffer_index] = 0.0;
+//	dual_DCT_dbuffer4[clear_dual_DCT_buffer_index] = 0.0;
+
+
+	id_dual_DCT_reg.ErrSum = 0.0;
+//	iq_dual_DCT_reg.ErrSum = 0.0;
+
+	id_dual_DCT_reg.i = 0;
+	id_dual_DCT_reg.i_prev = -1;
+//	iq_dual_DCT_reg.i = 0;
+//	iq_dual_DCT_reg.i_prev = -1;
+
+	clear_dual_DCT_buffer_index = clear_dual_DCT_buffer_index + 1;
+	if(clear_dual_DCT_buffer_index >= id_dual_DCT_reg.BufferHistoryLength - 1)
+	{
+		clear_dual_DCT_buffer_index = 0;
+	}
+
+	// clear all outputs of DCT controllers
+	id_dual_DCT_reg.Out = 0.0;
+//	iq_dual_DCT_reg.Out = 0.0;
+}
+
+
+
+
+/**************************************************************
+* Function, which clears integral parts and outputs of
+* advaced speed controllers
+**************************************************************/
+void clear_advanced_speed_reg(void)
+{
+	// clear all integral parts of resonant controllers
+	speed_RES_reg_1.Ui1 = 0.0;
+	speed_RES_reg_1.Ui2 = 0.0;
+	speed_RES_reg_2.Ui1 = 0.0;
+	speed_RES_reg_2.Ui2 = 0.0;
+	speed_RES_reg_3.Ui1 = 0.0;
+	speed_RES_reg_3.Ui2 = 0.0;
+	speed_RES_reg_4.Ui1 = 0.0;
+	speed_RES_reg_4.Ui2 = 0.0;
+	speed_RES_reg_5.Ui1 = 0.0;
+	speed_RES_reg_5.Ui2 = 0.0;
+
+	// clear all outputs of resonant controllers
+	speed_RES_reg_1.Out = 0.0;
+	speed_RES_reg_2.Out = 0.0;
+	speed_RES_reg_3.Out = 0.0;
+	speed_RES_reg_4.Out = 0.0;
+	speed_RES_reg_5.Out = 0.0;
 }
 
 
@@ -2236,10 +2401,10 @@ void PER_int_setup(void)
     dlog.trig = &kot_el;
     dlog.trig_level = 0.01;
 
-    dlog.iptr1 = &tok_d;
-    dlog.iptr2 = &tok_q;
-    dlog.iptr3 = &speed_meh_CAP;
-    dlog.iptr4 = &tok_i1;
+    dlog.iptr1 = &id_PI_reg.Err;
+    dlog.iptr2 = &tok_i1;
+    dlog.iptr3 = &speed_PI_reg.Err;
+    dlog.iptr4 = &speed_meh_CAP;
 
 
     // initialize reference generator
@@ -2382,7 +2547,7 @@ void PER_int_setup(void)
     id_DCT_reg.FIR_filter_float.coeff_ptr = coeff1;
     id_DCT_reg.FIR_filter_float.dbuffer_ptr = dbuffer1;
 
-    // initialize current DCT controller
+    // initialize d current DCT controller
     DCT_REG_INIT_MACRO(id_DCT_reg); // initialize all variables and coefficients
     id_DCT_reg.Kdct = 0.01; // 0.01
     id_DCT_reg.ErrSumMax = 10.0;
@@ -2404,7 +2569,7 @@ void PER_int_setup(void)
     iq_DCT_reg.FIR_filter_float.coeff_ptr = coeff2;
     iq_DCT_reg.FIR_filter_float.dbuffer_ptr = dbuffer2;
 
-    // initialize current DCT controller
+    // initialize q current DCT controller
     DCT_REG_INIT_MACRO(iq_DCT_reg); // initialize all variables and coefficients
     iq_DCT_reg.Kdct = 0.01; // 0.01
     iq_DCT_reg.ErrSumMax = 10.0;
@@ -2414,12 +2579,86 @@ void PER_int_setup(void)
     DCT_REG_FIR_COEFF_INIT_MACRO(iq_DCT_reg); // set coefficents of the DCT filter
 
 
+    // initialize current dual DCT controller
+
+    // FPU library FIR filter initialization - necessary for the DCT filter 1 realization
+    id_dual_DCT_reg.FIR_filter_float1.cbindex = 0;
+    id_dual_DCT_reg.FIR_filter_float1.order = FIR_FILTER_NUMBER_OF_COEFF2 - 1;
+    id_dual_DCT_reg.FIR_filter_float1.input = 0.0;
+    id_dual_DCT_reg.FIR_filter_float1.output = 0.0;
+    id_dual_DCT_reg.FIR_filter_float1.init(&id_dual_DCT_reg);
+
+    // FPU library FIR filter initialization - necessary for the DCT filter 2 realization
+    id_dual_DCT_reg.FIR_filter_float2.cbindex = 0;
+    id_dual_DCT_reg.FIR_filter_float2.order = FIR_FILTER_NUMBER_OF_COEFF2 - 1;
+    id_dual_DCT_reg.FIR_filter_float2.input = 0.0;
+    id_dual_DCT_reg.FIR_filter_float2.output = 0.0;
+    id_dual_DCT_reg.FIR_filter_float2.init(&id_dual_DCT_reg);
+
+    // initialize FPU library FIR filter pointers, which are pointing to the external FIR filter coefficient buffer and delay buffer
+    // IMPORTANT: THOSE TWO POINTERS ARE USED TO CHANGE THE BUFFERS VALUES WITHIN STRUCTURE!
+    //            INITIALZE THE POINTERS IN THE NEXT FOUR LINES BEFORE CALLING ANY INITIZALIZING MACRO OR FUNCTION!
+    id_dual_DCT_reg.FIR_filter_float1.coeff_ptr = dual_DCT_coeff1;
+    id_dual_DCT_reg.FIR_filter_float1.dbuffer_ptr = dual_DCT_dbuffer1;
+    id_dual_DCT_reg.FIR_filter_float2.coeff_ptr = dual_DCT_coeff2;
+    id_dual_DCT_reg.FIR_filter_float2.dbuffer_ptr = dual_DCT_dbuffer2;
+
+    // initialize d current DCT controller
+    dual_DCT_REG_INIT_MACRO(id_dual_DCT_reg); // initialize all variables and coefficients
+    id_dual_DCT_reg.Kdct = 0.001; // 0.01
+    id_dual_DCT_reg.ErrSumMax = 10.0;
+    id_dual_DCT_reg.ErrSumMin = -10.0;
+    id_dual_DCT_reg.OutMax = 0.1;
+    id_dual_DCT_reg.OutMin = -0.1;
+    dual_DCT_REG_FIR_COEFF_INIT_MACRO(id_dual_DCT_reg); // set coefficents of the DCT filter
+
+
+    // initialize speed resonant controllers
+	speed_RES_reg_1.Harmonic = 1;
+	speed_RES_reg_1.Kres = 1e-3; // 1e-3
+	speed_RES_reg_1.PhaseCompDeg = 90.0;
+	speed_RES_reg_1.OutMax = 5.0;
+	speed_RES_reg_1.OutMin = -5.0;
+	speed_RES_reg_1.Out = 0.0;
+
+	speed_RES_reg_2.Harmonic = 2;
+	speed_RES_reg_2.Kres = 1e-3; // 1e-3
+	speed_RES_reg_2.PhaseCompDeg = 90.0;
+	speed_RES_reg_2.OutMax = 5.0;
+	speed_RES_reg_2.OutMin = -5.0;
+	speed_RES_reg_2.Out = 0.0;
+
+	speed_RES_reg_3.Harmonic = 3;
+	speed_RES_reg_3.Kres = 1e-3; // 1e-3
+	speed_RES_reg_3.PhaseCompDeg = 90.0;
+	speed_RES_reg_3.OutMax = 5.0;
+	speed_RES_reg_3.OutMin = -5.0;
+	speed_RES_reg_3.Out = 0.0;
+
+	speed_RES_reg_4.Harmonic = 4;
+	speed_RES_reg_4.Kres = 1e-3; // 1e-3
+	speed_RES_reg_4.PhaseCompDeg = 90.0;
+	speed_RES_reg_4.OutMax = 5.0;
+	speed_RES_reg_4.OutMin = -5.0;
+	speed_RES_reg_4.Out = 0.0;
+
+	speed_RES_reg_5.Harmonic = 8;
+	speed_RES_reg_5.Kres = 1e-3; // 1e-3
+	speed_RES_reg_5.PhaseCompDeg = 90.0;
+	speed_RES_reg_5.OutMax = 5.0;
+	speed_RES_reg_5.OutMin = -5.0;
+	speed_RES_reg_5.Out = 0.0;
+
+
 	// clear integral parts and outputs of all controllers
 	clear_controllers();
 
 	// disable advanced current controllers
-	enable_advanced_current_reg = FALSE;
-	auto_calc_of_advanced_reg_params = FALSE;
+//	enable_advanced_current_reg = FALSE;
+	// disable advanced current controllers
+// 	enable_advanced_speed_reg = FALSE;
+	// disable auto calculation of advanced controllers
+//	auto_calc_of_advanced_reg_params = FALSE;
 
     // initialize stopwatch
 	TIC_init();

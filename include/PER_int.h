@@ -33,6 +33,7 @@
 #include	"RES_REG.h"
 #include	"REP_REG.h"
 #include	"DCT_REG.h"
+#include	"dual_DCT_REG.h"
 
 #include    "DLOG_gen.h"
 #include    "REF_gen.h"

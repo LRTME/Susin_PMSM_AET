@@ -18,10 +18,11 @@
 *
 * 3.2		19.7.2019   Denis Sušin			Corrections to "i_delta" calculations. Before the function had bugs.
 *
-* 3.3		19.7.2019   Denis Sušin			Corrections to phase delay compensation "k". One additional sample must be
-*											compensated when calculating "index", because of calculation delay
-*											(one sample exactly). However, this extra sample must not be implemented in
+* 3.3		19.7.2019   Denis Sušin			Corrections to phase delay compensation "k". One additional sample must be 
+*											compensated when calculating "index", because of calculation delay 
+*											(one sample exactly). However, this extra sample must not be implemented in 
 *											FIR (DCT) filter coefficients calculation.
+* 3.4		29.8.2019   Denis Sušin			Added pragma in front of two internal functions, cleared unnecessary init value.
 *
 ****************************************************************/
 
@@ -37,12 +38,12 @@
 
 
 // maximal length of buffer for saving history of accumulated error and number of coefficients for DCT (FIR) filter
-#define     FIR_FILTER_NUMBER_OF_COEFF   	500
+#define     FIR_FILTER_NUMBER_OF_COEFF   	400
 
 // maximal length of harmonics array
 #define		LENGTH_OF_HARMONICS_ARRAY		3
 // harmonics selection at the begining that passes through DCT filter (i.e. "{1,5,7}" means that 1st, 5th and 7th harmonic passes through DCT filter, others are blocked)
-#define		SELECTED_HARMONICS				{1, 6, 12}
+#define		SELECTED_HARMONICS				{1,0,0}
 
 
 typedef struct DCT_REG_FLOAT_STRUCT
