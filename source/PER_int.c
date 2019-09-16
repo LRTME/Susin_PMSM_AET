@@ -1962,6 +1962,24 @@ void speed_loop_control(void)
 			PI_ctrl_calc(&speed_PI_reg);
 
 			// hitrostna napredna (RES, RES_multiple, REP ali DCT) regulacija
+			if(auto_calc_of_advanced_reg_params == TRUE)
+			{
+				speed_RES_reg_1.PhaseCompDeg = 90.0;
+				speed_RES_reg_2.PhaseCompDeg = 90.0;
+				speed_RES_reg_3.PhaseCompDeg = 90.0;
+				speed_RES_reg_4.PhaseCompDeg = 90.0;
+				speed_RES_reg_5.PhaseCompDeg = 90.0;
+
+				if(speed_meh_CAP < 0.0)
+				{
+					speed_RES_reg_1.PhaseCompDeg = -90.0;
+					speed_RES_reg_2.PhaseCompDeg = -90.0;
+					speed_RES_reg_3.PhaseCompDeg = -90.0;
+					speed_RES_reg_4.PhaseCompDeg = -90.0;
+					speed_RES_reg_5.PhaseCompDeg = -90.0;
+				}
+			}
+
 			speed_RES_reg_1.Ref = speed_meh_ref;
 			speed_RES_reg_1.Fdb = speed_meh_CAP;
 			speed_RES_reg_1.Angle = kot_meh;

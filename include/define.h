@@ -66,7 +66,8 @@ typedef enum {FALSE = 0, TRUE} bool;
 // statorska induktivnost v vzdolzni smeri [H]
 #define     Ld              24e-6
 // statorska induktivnost v preèni smeri [H]
-#define     Lq              56e-6
+// #define     Lq              56e-6
+#define     Lq              Ld
 // mag. pretok trajnih magnetov [Wb]
 #define     PSI_ROT         0.019630984202985
 // vztrajnostni moment motorja [kgm^2]
