@@ -6,8 +6,10 @@
 * VERSION:      1.0
 *
 * CHANGES :
-* VERSION   DATE		WHO					DETAIL
-* 1.0       28.8.2019	Denis Sušin			Initial version based on DCT controller v3.4.
+* VERSION   	DATE		WHO					DETAIL
+* 1.0       	28.8.2019	Denis Sušin			Initial version based on DCT controller v3.4.
+* 2.0       	20.9.2019	Denis Sušin			Upgraded phase compensation, now is phase 
+*												compensation accepted in degrees
 *
 ****************************************************************/
 
@@ -67,19 +69,10 @@ void dual_DCT_REG_CALC (dual_DCT_REG_float *v)
 
 	for(v->HarmonicIndex = 0; v->HarmonicIndex < LENGTH_OF_HARMONICS_ARRAY2; v->HarmonicIndex++)
 	{
-		// omejitev kompenzacije zakasnitve, ki ne sme presegati dolžine bufferja
-		if (v->k[v->HarmonicIndex] > v->BufferHistoryLength)
-		{
-			v->k[v->HarmonicIndex] = v->BufferHistoryLength;
-		}
-		else if (v->k[v->HarmonicIndex] < -v->BufferHistoryLength)
-		{
-			v->k[v->HarmonicIndex] = -v->BufferHistoryLength;
-		}
 
 		v->SumOfHarmonics = v->SumOfHarmonics + v->HarmonicsBuffer[v->HarmonicIndex];
 		v->SumOfAmplitudes = v->SumOfAmplitudes + v->A[v->HarmonicIndex];
-		v->SumOfLagCompensation = v->SumOfLagCompensation + v->k[v->HarmonicIndex];
+		v->SumOfLagCompensation = v->SumOfLagCompensation + v->fi_deg[v->HarmonicIndex];
 	}
 
 	// zaznavanje spremembe parametrov dvojnega DCT regulatorja s strani uporabnika, ki zahteva vnovièni izraèun koeficientov obeh DCT filtrov
@@ -213,7 +206,8 @@ void FIR_FILTER_COEFF_CALC2 (dual_DCT_REG_float *v)
 			*(v->FIR_filter_float2.coeff_ptr + v->j) = *(v->FIR_filter_float2.coeff_ptr + v->j) + 		\
 						  2.0/(FIR_FILTER_NUMBER_OF_COEFF2) *  											\
 						  v->A[harmonic_index] * cos( 2.0 * PI * v->HarmonicsBuffer[harmonic_index] * 	\
-						  ( (float)(v->j - v->k[harmonic_index])  ) / (FIR_FILTER_NUMBER_OF_COEFF2) );
+						  ( (float)(v->j) / (FIR_FILTER_NUMBER_OF_COEFF2) ) + 							\
+						  v->fi_deg[harmonic_index] * PI/180.0);										\
 		}
 	}
 	/* FIR FILTER FROM FPU LIBRARY DOESN'T FLIP SIGNAL FROM LEFT TO RIGHT WHILE PERFORMING CONVOLUTION */
