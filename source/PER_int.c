@@ -2413,16 +2413,21 @@ void PER_int_setup(void)
     dlog.auto_time = 1;
     dlog.holdoff_time = 1;
 
-    dlog.downsample_ratio = 10;
+    dlog.downsample_ratio = 5;
 
     dlog.slope = Positive;
     dlog.trig = &kot_el;
     dlog.trig_level = 0.01;
 
-    dlog.iptr1 = &id_PI_reg.Err;
-    dlog.iptr2 = &tok_i1;
-    dlog.iptr3 = &speed_PI_reg.Err;
-    dlog.iptr4 = &speed_meh_CAP;
+    dlog.iptr1 = &speed_PI_reg.Err;
+    dlog.iptr2 = &speed_meh_CAP;
+
+//    dlog.iptr1 = &id_PI_reg.Err;
+//    dlog.iptr2 = &iq_PI_reg.Err;
+//    dlog.iptr1 = &tok_i1;
+//    dlog.iptr2 = &iq_PI_reg.Ref;
+//    dlog.iptr1 = &speed_PI_reg.Err;
+//    dlog.iptr2 = &speed_meh_CAP;
 
 
     // initialize reference generator

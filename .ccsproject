@@ -13,4 +13,5 @@
 	<templateProperties value="id=com.ti.common.project.core.emptyProjectTemplate,"/>
 	<filesToOpen value=""/>
 	<isTargetManual value="false"/>
+	<origin value="D:/DenisS/3_Doktorat/Raziskovanje/Projekti/2019_4_23_Trifazni_motor_AET/Program_PMSM_od_prej/Denis_PMSM_MCU"/>
 </projectOptions>
