@@ -15,12 +15,13 @@ volatile enum	MODULATION modulation = SVM;
 volatile enum	CONTROL control = OPEN_LOOP;
 
 volatile enum	{NONE, RES, RES_multiple, REP, DCT, dual_DCT} advanced_current_reg_type = NONE;
+volatile enum	{NONE_speed, RES_speed, mRES_speed, RES_REP_speed} advanced_speed_reg_type = NONE_speed;
 
 bool			control_enable = FALSE;
 
 bool			enable_advanced_current_reg = TRUE;
 
-bool			enable_advanced_speed_reg = FALSE;
+bool			enable_advanced_speed_reg = TRUE;
 
 bool			auto_calc_of_advanced_reg_params = TRUE;
 
@@ -165,7 +166,7 @@ float			cas_izracuna_RES_reg = 0.0;
 float			cas_izracuna_RES_multiple_reg = 0.0;
 
 // automatic calculation of RES current controller parameters
-float			freq_critical = 0.0;
+float			freq_critical = 2000.0;
 float			factor_res_reg_gain = 0.0;
 float			factor_res_reg_gain_additional = 1.0;
 
@@ -253,6 +254,9 @@ RES_REG_float	speed_RES_reg_2 = RES_REG_FLOAT_DEFAULTS;
 RES_REG_float	speed_RES_reg_3 = RES_REG_FLOAT_DEFAULTS;
 RES_REG_float	speed_RES_reg_4 = RES_REG_FLOAT_DEFAULTS;
 RES_REG_float	speed_RES_reg_5 = RES_REG_FLOAT_DEFAULTS;
+
+// advanced speed repetitive (REP) controller
+REP_REG_float	speed_REP_reg = REP_REG_FLOAT_DEFAULTS;
 
 // position PID controller
 float   Kp_position_PID_reg = 200.0;  		// velja, èe ni hitrostne zanke Kp = 200.0
@@ -1481,8 +1485,8 @@ void advanced_current_loop_control(void)
 		if(auto_calc_of_advanced_reg_params == TRUE)
 		{
 			// avtomatski izraèun ojaèanj
-			freq_critical = 1.0/(2.0*PI) * SAMPLE_FREQ * 1.0/(2.0*1.5*sqrt(1 + (1.5/SAMPLE_FREQ)*(1.5/SAMPLE_FREQ))); // izraèun velja samo, èe je PI reg. parametriran po optimumu iznosa
-			freq_critical = 1.0/(2.0*PI) * nap_dc/Rs * id_PI_reg.Ki * SAMPLE_FREQ * 1.0/(sqrt(1 + (1.5/SAMPLE_FREQ)*(1.5/SAMPLE_FREQ)));
+//			freq_critical = 1.0/(2.0*PI) * SAMPLE_FREQ * 1.0/(2.0*1.5*sqrt(1 + (1.5/SAMPLE_FREQ)*(1.5/SAMPLE_FREQ))); // izraèun velja samo, èe je PI reg. parametriran po optimumu iznosa
+//			freq_critical = 1.0/(2.0*PI) * nap_dc/Rs * id_PI_reg.Ki * SAMPLE_FREQ * 1.0/(sqrt(1 + (1.5/SAMPLE_FREQ)*(1.5/SAMPLE_FREQ)));
 
 			// avtomatski izracun ojacanj za RES reg. 1
 			factor_res_reg_gain = 1 - (id_RES_reg_1.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*id_RES_reg_1.Harmonic*fabs(speed_meh_CAP)/freq_critical);
@@ -1554,21 +1558,21 @@ void advanced_current_loop_control(void)
 			// id_RES_reg_5.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
 			// id_RES_reg_6.PhaseCompDeg = phase_lag_comp_calc((id_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
 
-			// v praksi ne deluje
-			// id_RES_reg_1.PhaseCompDeg = atan2(2*PI*(id_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
-			// id_RES_reg_2.PhaseCompDeg = atan2(2*PI*(id_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
-			// id_RES_reg_3.PhaseCompDeg = atan2(2*PI*(id_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
-			// id_RES_reg_4.PhaseCompDeg = atan2(2*PI*(id_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
-			// id_RES_reg_5.PhaseCompDeg = atan2(2*PI*(id_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
-			// id_RES_reg_6.PhaseCompDeg = atan2(2*PI*(id_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+			// v praksi ne deluje, èe je Rs 47e-3 Ohm in ne 188e-3 Ohm
+			// id_RES_reg_1.PhaseCompDeg = atan2(2*PI*(id_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			// id_RES_reg_2.PhaseCompDeg = atan2(2*PI*(id_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			// id_RES_reg_3.PhaseCompDeg = atan2(2*PI*(id_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			// id_RES_reg_4.PhaseCompDeg = atan2(2*PI*(id_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			// id_RES_reg_5.PhaseCompDeg = atan2(2*PI*(id_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			// id_RES_reg_6.PhaseCompDeg = atan2(2*PI*(id_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
 
 			// v praksi deluje
-			id_RES_reg_1.PhaseCompDeg = atan2(2*PI*(id_RES_reg_1.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
-			id_RES_reg_2.PhaseCompDeg = atan2(2*PI*(id_RES_reg_2.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
-			id_RES_reg_3.PhaseCompDeg = atan2(2*PI*(id_RES_reg_3.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
-			id_RES_reg_4.PhaseCompDeg = atan2(2*PI*(id_RES_reg_4.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
-			id_RES_reg_5.PhaseCompDeg = atan2(2*PI*(id_RES_reg_5.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
-			id_RES_reg_6.PhaseCompDeg = atan2(2*PI*(id_RES_reg_6.Harmonic-1)*speed_meh_ABF*Ld,Rs)*180/PI;
+			id_RES_reg_1.PhaseCompDeg = atan2(2*PI*(id_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			id_RES_reg_2.PhaseCompDeg = atan2(2*PI*(id_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			id_RES_reg_3.PhaseCompDeg = atan2(2*PI*(id_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			id_RES_reg_4.PhaseCompDeg = atan2(2*PI*(id_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			id_RES_reg_5.PhaseCompDeg = atan2(2*PI*(id_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			id_RES_reg_6.PhaseCompDeg = atan2(2*PI*(id_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
 
 		} // end of if(auto_calc_of_advanced_reg_params == TRUE)
 
@@ -1625,7 +1629,7 @@ void advanced_current_loop_control(void)
 			// id_REP_reg.k = phase_lag_comp_calc(POLE_PAIRS*speed_meh_CAP)/180.0 * id_REP_reg.BufferHistoryLength;
 
 			// v praksi deluje
-			id_REP_reg.k = atan2(2*PI*speed_meh_CAP*Ld,Rs)/(2*PI)*id_REP_reg.BufferHistoryLength;
+			id_REP_reg.k = atan2(2*PI*POLE_PAIRS*speed_meh_CAP*Ld,Rs)/(2*PI)*id_REP_reg.BufferHistoryLength;
 		}
 
 		// izracun REP reg. - d os
@@ -1645,7 +1649,7 @@ void advanced_current_loop_control(void)
 	{
 		if(auto_calc_of_advanced_reg_params == TRUE)
 		{
-			id_DCT_reg.k = atan2(2*PI*speed_meh_CAP*Ld,Rs)/(2*PI)*id_DCT_reg.BufferHistoryLength;
+			id_DCT_reg.k = atan2(2*PI*POLE_PAIRS*speed_meh_CAP*Ld,Rs)/(2*PI)*id_DCT_reg.BufferHistoryLength;
 		}
 
 		// izracun DCT reg. - d os
@@ -1696,8 +1700,8 @@ void advanced_current_loop_control(void)
 		if(auto_calc_of_advanced_reg_params == TRUE)
 		{
 			// avtomatski izraèun ojaèanj
-			freq_critical = 1.0/(2.0*PI) * SAMPLE_FREQ * 1.0/(2.0*1.5*sqrt(1 + (1.5/SAMPLE_FREQ)*(1.5/SAMPLE_FREQ))); // izraèun velja samo, èe je PI reg. parametriran po optimumu iznosa
-			freq_critical = 1.0/(2.0*PI) * nap_dc/Rs * iq_PI_reg.Ki * SAMPLE_FREQ * 1.0/(sqrt(1 + (1.5/SAMPLE_FREQ)*(1.5/SAMPLE_FREQ)));
+//			freq_critical = 1.0/(2.0*PI) * SAMPLE_FREQ * 1.0/(2.0*1.5*sqrt(1 + (1.5/SAMPLE_FREQ)*(1.5/SAMPLE_FREQ))); // izraèun velja samo, èe je PI reg. parametriran po optimumu iznosa
+//			freq_critical = 1.0/(2.0*PI) * nap_dc/Rs * iq_PI_reg.Ki * SAMPLE_FREQ * 1.0/(sqrt(1 + (1.5/SAMPLE_FREQ)*(1.5/SAMPLE_FREQ)));
 
 			factor_res_reg_gain = 1 - (iq_RES_reg_1.Harmonic*POLE_PAIRS*fabs(speed_meh_CAP)/freq_critical)*(POLE_PAIRS*iq_RES_reg_1.Harmonic*fabs(speed_meh_CAP)/freq_critical);
 			if(factor_res_reg_gain > 0.0)
@@ -1769,21 +1773,21 @@ void advanced_current_loop_control(void)
 			// iq_RES_reg_5.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
 			// iq_RES_reg_6.PhaseCompDeg = phase_lag_comp_calc((iq_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP);
 
-			// v praksi ne deluje
-			// iq_RES_reg_1.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
-			// iq_RES_reg_2.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
-			// iq_RES_reg_3.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
-			// iq_RES_reg_4.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
-			// iq_RES_reg_5.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
-			// iq_RES_reg_6.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_ABF*Ld,Rs)*180/PI;
+			// v praksi ne deluje, èe je Rs 47e-3 Ohm in ne 188e-3 Ohm
+			// iq_RES_reg_1.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			// iq_RES_reg_2.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			// iq_RES_reg_3.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			// iq_RES_reg_4.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			// iq_RES_reg_5.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
+			// iq_RES_reg_6.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Ld,Rs)*180/PI;
 
 			// v praksi deluje
-			iq_RES_reg_1.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_1.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
-			iq_RES_reg_2.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_2.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
-			iq_RES_reg_3.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_3.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
-			iq_RES_reg_4.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_4.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
-			iq_RES_reg_5.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_5.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
-			iq_RES_reg_6.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_6.Harmonic-1)*speed_meh_ABF*Lq,Rs)*180/PI;
+			iq_RES_reg_1.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_1.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Lq,Rs)*180/PI;
+			iq_RES_reg_2.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_2.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Lq,Rs)*180/PI;
+			iq_RES_reg_3.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_3.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Lq,Rs)*180/PI;
+			iq_RES_reg_4.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_4.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Lq,Rs)*180/PI;
+			iq_RES_reg_5.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_5.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Lq,Rs)*180/PI;
+			iq_RES_reg_6.PhaseCompDeg = atan2(2*PI*(iq_RES_reg_6.Harmonic-1)*POLE_PAIRS*speed_meh_CAP*Lq,Rs)*180/PI;
 		} // end of if(auto_calc_of_advanced_reg_params == TRUE)
 
 
@@ -1840,7 +1844,7 @@ void advanced_current_loop_control(void)
 			// iq_REP_reg.k = phase_lag_comp_calc(POLE_PAIRS*speed_meh_CAP)/180.0 * iq_REP_reg.BufferHistoryLength; // ne deluje v praksi
 
 			// v praksi deluje
-			iq_REP_reg.k = atan2(2*PI*speed_meh_CAP*Lq,Rs)/(2*PI)*iq_REP_reg.BufferHistoryLength;
+			iq_REP_reg.k = atan2(2*PI*POLE_PAIRS*speed_meh_CAP*Lq,Rs)/(2*PI)*iq_REP_reg.BufferHistoryLength;
 		}
 
 		// izracun REP reg. - q os
@@ -1861,7 +1865,7 @@ void advanced_current_loop_control(void)
 	{
 		if(auto_calc_of_advanced_reg_params == TRUE)
 		{
-			iq_DCT_reg.k = atan2(2*PI*speed_meh_CAP*Lq,Rs)/(2*PI)*iq_DCT_reg.BufferHistoryLength;
+			iq_DCT_reg.k = atan2(2*PI*POLE_PAIRS*speed_meh_CAP*Lq,Rs)/(2*PI)*iq_DCT_reg.BufferHistoryLength;
 		}
 
 		// izracun DCT reg. - d os
@@ -2005,11 +2009,32 @@ void speed_loop_control(void)
 			speed_RES_reg_5.Angle = kot_meh;
 			RES_REG_CALC(speed_RES_reg_5);
 
+			speed_REP_reg.Ref = speed_meh_ref;
+			speed_REP_reg.Fdb = speed_meh_CAP;
+			speed_REP_reg.SamplingSignal = kot_meh;
+			REP_REG_CALC(&speed_REP_reg);
+
 			if(enable_advanced_speed_reg == TRUE)
 			{
-				advanced_speed_reg_out = speed_RES_reg_1.Out + speed_RES_reg_2.Out + \
-										 speed_RES_reg_3.Out + speed_RES_reg_4.Out + \
-										 speed_RES_reg_5.Out;
+				if(advanced_speed_reg_type == NONE_speed)
+				{
+					advanced_speed_reg_out = 0.0;
+					clear_advanced_speed_reg();
+				}
+				else if(advanced_speed_reg_type == RES_speed)
+				{
+					advanced_speed_reg_out = speed_RES_reg_1.Out;
+				}
+				else if(advanced_speed_reg_type == mRES_speed)
+				{
+					advanced_speed_reg_out = speed_RES_reg_1.Out + speed_RES_reg_2.Out + \
+											 speed_RES_reg_3.Out + speed_RES_reg_4.Out + \
+											 speed_RES_reg_5.Out;
+				}
+				else if(advanced_speed_reg_type == RES_REP_speed)
+				{
+					advanced_speed_reg_out = speed_RES_reg_1.Out + speed_REP_reg.Out;
+				}
 			}
 			else
 			{
@@ -2366,6 +2391,27 @@ void clear_advanced_speed_reg(void)
 	speed_RES_reg_3.Out = 0.0;
 	speed_RES_reg_4.Out = 0.0;
 	speed_RES_reg_5.Out = 0.0;
+
+
+	// clear all integral parts of repetitive controller
+	// CAUTION: THE FACT IS THAT SOME TIME MUST BE SPEND TO CLEAR THE WHOLE BUFFER (ONE IN EACH ITERATION),
+	//          WHICH IS TYPICAL LESS THAN 1 SEC!
+	speed_REP_reg.ErrSumHistory[clear_REP_buffer_index] = 0.0;
+
+	speed_REP_reg.ErrSum = 0.0;
+
+	speed_REP_reg.i = 0;
+	speed_REP_reg.i_prev = -1;
+
+	clear_REP_buffer_index = clear_REP_buffer_index + 1;
+	if(clear_REP_buffer_index >= speed_REP_reg.BufferHistoryLength - 1)
+	{
+		clear_REP_buffer_index = 0;
+	}
+
+	// clear all outputs of repetitive controllers
+	speed_REP_reg.Out = 0.0;
+	speed_REP_reg.Out = 0.0;
 }
 
 
@@ -2413,21 +2459,26 @@ void PER_int_setup(void)
     dlog.auto_time = 1;
     dlog.holdoff_time = 1;
 
-    dlog.downsample_ratio = 5;
+    dlog.downsample_ratio = 20;
 
     dlog.slope = Positive;
     dlog.trig = &kot_el;
     dlog.trig_level = 0.01;
 
-    dlog.iptr1 = &speed_PI_reg.Err;
-    dlog.iptr2 = &speed_meh_CAP;
+    dlog.iptr1 = &id_PI_reg.Err;
+    dlog.iptr2 = &iq_PI_reg.Err;
+    dlog.iptr3 = &tok_i1;
+    dlog.iptr4 = &iq_PI_reg.Ref;
+    dlog.iptr5 = &speed_PI_reg.Err;
+    dlog.iptr6 = &speed_meh_CAP;
+    dlog.iptr7 = &speed_meh_ABF;
+    dlog.iptr8 = &position_PID_reg.Err;
 
-//    dlog.iptr1 = &id_PI_reg.Err;
-//    dlog.iptr2 = &iq_PI_reg.Err;
-//    dlog.iptr1 = &tok_i1;
-//    dlog.iptr2 = &iq_PI_reg.Ref;
+
 //    dlog.iptr1 = &speed_PI_reg.Err;
 //    dlog.iptr2 = &speed_meh_CAP;
+
+//    dlog.downsample_ratio = 5;
 
 
     // initialize reference generator
@@ -2534,9 +2585,9 @@ void PER_int_setup(void)
     id_REP_reg.BufferHistoryLength = 1000; // 1000 = 20kHz/20 Hz
     id_REP_reg.Krep = 0.01; // 0.01
     id_REP_reg.k = 6; // 6
-    id_REP_reg.w0 = 0.403; // 0.2 ali 0.403
-    id_REP_reg.w1 = 0.250; // 0.2 ali 0.250
-    id_REP_reg.w2 = 0.049; // 0.2 ali 0.049
+    id_REP_reg.w0 = 0.2; // 0.2 ali 0.403
+    id_REP_reg.w1 = 0.2; // 0.2 ali 0.250
+    id_REP_reg.w2 = 0.2; // 0.2 ali 0.049
     id_REP_reg.ErrSumMax = 0.2;
     id_REP_reg.ErrSumMin = -0.2;
     id_REP_reg.OutMax = 0.1;
@@ -2638,39 +2689,52 @@ void PER_int_setup(void)
 
     // initialize speed resonant controllers
 	speed_RES_reg_1.Harmonic = 1;
-	speed_RES_reg_1.Kres = 1e-3; // 1e-3
+	speed_RES_reg_1.Kres = 2e-3; // 2e-3
 	speed_RES_reg_1.PhaseCompDeg = 90.0;
 	speed_RES_reg_1.OutMax = 5.0;
 	speed_RES_reg_1.OutMin = -5.0;
 	speed_RES_reg_1.Out = 0.0;
 
 	speed_RES_reg_2.Harmonic = 2;
-	speed_RES_reg_2.Kres = 1e-3; // 1e-3
+	speed_RES_reg_2.Kres = 0.25 * speed_RES_reg_1.Kres; // 5e-4
 	speed_RES_reg_2.PhaseCompDeg = 90.0;
 	speed_RES_reg_2.OutMax = 5.0;
 	speed_RES_reg_2.OutMin = -5.0;
 	speed_RES_reg_2.Out = 0.0;
 
 	speed_RES_reg_3.Harmonic = 3;
-	speed_RES_reg_3.Kres = 1e-3; // 1e-3
+	speed_RES_reg_3.Kres = 0.25 * speed_RES_reg_1.Kres; // 5e-4
 	speed_RES_reg_3.PhaseCompDeg = 90.0;
 	speed_RES_reg_3.OutMax = 5.0;
 	speed_RES_reg_3.OutMin = -5.0;
 	speed_RES_reg_3.Out = 0.0;
 
 	speed_RES_reg_4.Harmonic = 4;
-	speed_RES_reg_4.Kres = 1e-3; // 1e-3
+	speed_RES_reg_4.Kres = 0.25 * speed_RES_reg_1.Kres; // 5e-4
 	speed_RES_reg_4.PhaseCompDeg = 90.0;
 	speed_RES_reg_4.OutMax = 5.0;
 	speed_RES_reg_4.OutMin = -5.0;
 	speed_RES_reg_4.Out = 0.0;
 
 	speed_RES_reg_5.Harmonic = 8;
-	speed_RES_reg_5.Kres = 1e-3; // 1e-3
+	speed_RES_reg_5.Kres = 0.25 * speed_RES_reg_1.Kres; // 5e-4
 	speed_RES_reg_5.PhaseCompDeg = 90.0;
 	speed_RES_reg_5.OutMax = 5.0;
 	speed_RES_reg_5.OutMin = -5.0;
 	speed_RES_reg_5.Out = 0.0;
+
+    // initialize speed repetitive controller
+    REP_REG_INIT_MACRO(speed_REP_reg);
+    speed_REP_reg.BufferHistoryLength = 1000; // 1000 = 20kHz/20 Hz
+    speed_REP_reg.Krep = 0.5 * speed_RES_reg_1.Kres*SAMPLE_FREQ/(2.0*POLE_PAIRS*10.0); // ?
+    speed_REP_reg.k = 15; // ?
+    speed_REP_reg.w0 = 0.2; // 0.2 ali 0.403
+    speed_REP_reg.w1 = 0.2; // 0.2 ali 0.250
+    speed_REP_reg.w2 = 0.2; // 0.2 ali 0.049
+    speed_REP_reg.ErrSumMax = 10.0;
+    speed_REP_reg.ErrSumMin = -10.0;
+    speed_REP_reg.OutMax = 5.0;
+    speed_REP_reg.OutMin = -5.0;
 
 
 	// clear integral parts and outputs of all controllers

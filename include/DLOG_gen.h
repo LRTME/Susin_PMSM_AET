@@ -12,9 +12,9 @@
 // type of element to buffer
 #define     DLOG_GEN_TYPE   float
 // number of channels
-#define     DLOG_GEN_NR     2
+#define     DLOG_GEN_NR     8
 // size of each buffer
-#define     DLOG_GEN_SIZE   4000
+#define     DLOG_GEN_SIZE   1000
 
 /**************************************************************
 * update DLOG module

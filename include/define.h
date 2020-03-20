@@ -62,9 +62,9 @@ typedef enum {FALSE = 0, TRUE} bool;
 // polovi pari [1]
 #define     POLE_PAIRS    	4
 // upornost statorskega navitja [Ohm]
-#define     Rs              46.9e-3
+#define     Rs              188e-3				// 47e-3
 // statorska induktivnost v vzdolzni smeri [H]
-#define     Ld              24e-6
+#define     Ld              24e-6				// 24e-6
 // statorska induktivnost v preèni smeri [H]
 // #define     Lq              56e-6
 #define     Lq              Ld
